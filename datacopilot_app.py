@@ -28,8 +28,8 @@ if uploaded_file:
         {df.head().to_string()}
         A seguir, o usuário perguntou: "{question}"
 
-        Gere apenas o código Python necessário para responder à pergunta, sem explicações.
-        O código deve assumir que o DataFrame se chama 'df' e deve retornar um resultado no final (tabela ou gráfico).
+        Gere apenas o código Python necessário para responder à pergunta, sem explicações. 
+        Use st.write(...) para exibir os resultados, e assuma que o DataFrame se chama df.
         '''
         with st.spinner("Gerando código com IA..."):
             response = client.chat.completions.create(
