@@ -32,7 +32,6 @@ if uploaded_file:
         Use st.write(...) para exibir os resultados, e assuma que o DataFrame se chama df.
         Antes de calcular medidas, garanta que se trata de valores numéricos e converta todas as colunas numéricas usando:
         df = df.apply(lambda col: pd.to_numeric(col.astype(str).str.replace(',', '.'), errors='coerce') if col.dtype == 'object' else col)
-        Não inclua import pandas as pd — o pandas já está disponível no contexto como pd.
         '''
         with st.spinner("Gerando código com IA..."):
             response = client.chat.completions.create(
