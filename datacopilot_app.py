@@ -30,6 +30,8 @@ if uploaded_file:
 
         Gere apenas o código Python necessário para responder à pergunta, sem explicações. 
         Use st.write(...) para exibir os resultados, e assuma que o DataFrame se chama df.
+        Sempre que for converter colunas com números formatados com vírgula como separador decimal, use:
+        df['coluna'] = pd.to_numeric(df['coluna'].astype(str).str.replace(',', '.'), errors='coerce')
         '''
         with st.spinner("Gerando código com IA..."):
             response = client.chat.completions.create(
