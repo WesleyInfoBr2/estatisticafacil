@@ -4,6 +4,7 @@ import pandas as pd
 from openai import OpenAI
 import io
 import matplotlib.pyplot as plt
+import re
 
 # Configure sua API Key via secrets.toml ou diretamente aqui
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
@@ -37,6 +38,10 @@ if uploaded_file:
                 temperature=0
             )
             code = response.choices[0].message.content
+
+            raw_code = response.choices[0].message.content
+            code = re.sub(r"^```(python)?", "", raw_code.strip(), flags=re.MULTILINE)
+            code = re.sub(r"```$", "", code.strip(), flags=re.MULTILINE)
 
         st.subheader("Código gerado pela IA:")
         st.code(code, language="python")
