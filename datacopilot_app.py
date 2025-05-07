@@ -6,7 +6,7 @@ import io
 import matplotlib.pyplot as plt
 
 # Configure sua API Key via secrets.toml ou diretamente aqui
-openai.api_key = st.secrets["OPENAI_API_KEY"]
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 st.title("DataCopilot - Seu Analista de Dados com IA")
 
@@ -31,12 +31,12 @@ if uploaded_file:
         O código deve assumir que o DataFrame se chama 'df' e deve retornar um resultado no final (tabela ou gráfico).
         '''
         with st.spinner("Gerando código com IA..."):
-            response = openai.ChatCompletion.create(
+            response = client.chat.completions.create(
                 model="gpt-4",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0
             )
-            code = response['choices'][0]['message']['content']
+            code = response.choices[0].message.content
 
         st.subheader("Código gerado pela IA:")
         st.code(code, language="python")
