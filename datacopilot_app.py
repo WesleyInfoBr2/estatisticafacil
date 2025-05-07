@@ -52,7 +52,14 @@ if uploaded_file:
         if run_code:
             try:
                 # Cria um contexto seguro
-                local_vars = {'df': df, 'pd': pd, 'plt': plt, 'st': st}
-                exec(code, {}, local_vars)
+                safe_globals = {
+                    "__builtins__": __builtins__,
+                    "pd": pd,
+                    "plt": plt,
+                    "st": st,
+                    "df": df
+                }
+                
+                exec(code, safe_globals)
             except Exception as e:
                 st.error(f"Erro ao executar o código: {e}")
