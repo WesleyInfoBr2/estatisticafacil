@@ -32,7 +32,7 @@ if uploaded_file:
         '''
         with st.spinner("Gerando código com IA..."):
             response = client.chat.completions.create(
-                model="gpt-4",
+                model="gpt-3.5-turbo",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0
             )
