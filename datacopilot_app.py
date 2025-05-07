@@ -30,8 +30,8 @@ if uploaded_file:
 
         Gere apenas o código Python necessário para responder à pergunta, sem explicações. 
         Use st.write(...) para exibir os resultados, e assuma que o DataFrame se chama df.
-        Sempre que for converter colunas com números formatados com vírgula como separador decimal, use:
-        df['coluna'] = pd.to_numeric(df['coluna'].astype(str).str.replace(',', '.'), errors='coerce')
+        Antes de calcular medidas, garanta que se trata de valores numéricos e converta todas as colunas numéricas usando:
+        df = df.apply(lambda col: pd.to_numeric(col.astype(str).str.replace(',', '.'), errors='coerce') if col.dtype == 'object' else col)
         '''
         with st.spinner("Gerando código com IA..."):
             response = client.chat.completions.create(
