@@ -65,8 +65,10 @@ if uploaded_file:
             code = re.sub(r"^```(python)?", "", raw_code.strip(), flags=re.MULTILINE)
             code = re.sub(r"```$", "", code.strip(), flags=re.MULTILINE)
 
-        st.subheader("Código gerado pela IA:")
-        st.code(code, language="python")
+        # st.subheader("Código gerado pela IA:")
+        # st.code(code, language="python")
+        st.subheader("Código gerado pela IA (edite se desejar):")
+        code_editado = st.text_area("Código Python:", code, height=300)
 
         run_code = st.checkbox("Executar código?")
         if run_code:
@@ -80,6 +82,7 @@ if uploaded_file:
                     "df": df
                 }
                 
-                exec(code, safe_globals)
+                # exec(code, safe_globals)
+                exec(code_editado, safe_globals)
             except Exception as e:
                 st.error(f"Erro ao executar o código: {e}")
