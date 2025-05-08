@@ -28,10 +28,17 @@ if uploaded_file:
         {df.head().to_string()}
         A seguir, o usuário perguntou: "{question}"
 
-        Gere apenas o código Python necessário para responder à pergunta, sem explicações. 
-        Use st.write(...) para exibir os resultados, e assuma que o DataFrame se chama df.
-        Antes de calcular medidas, garanta que se trata de valores numéricos e converta todas as colunas numéricas usando:
-        df = df.apply(lambda col: pd.to_numeric(col.astype(str).str.replace(',', '.'), errors='coerce') if col.dtype == 'object' else col)
+        Gere apenas o código Python necessário para responder à pergunta, com comentários claros em cada etapa.
+        A aplicação será executada em Streamlit, portanto use st.write(...) para exibir todas as saídas.
+        Assuma que o DataFrame principal se chama df.
+        Antes de qualquer cálculo ou visualização, identifique automaticamente o tipo de cada variável do DataFrame (numérica, categórica ou textual), e apresente essa lista ao usuário com st.write(...).
+        Para variáveis numéricas que ainda estão no formato texto (object), execute uma limpeza usando as seguintes regras:
+            Se a variável contém apenas números (sem letras), converta para número.
+            Se o valor tem vírgula como separador decimal, troque por ponto.
+            Se houver vírgula como separador de milhar (e ponto como decimal), remova a vírgula.
+            Use pd.to_numeric(..., errors='coerce') para tratar valores inválidos.
+        Não altere colunas categóricas ou com texto descritivo (como nomes, estados, regiões, gênero, escolaridade, faixas etc).
+        Após esse tratamento, aplique os cálculos necessários com base na pergunta do usuário e apresente os resultados com st.dataframe(...), st.write(...) ou visualizações apropriadas.
         '''
         with st.spinner("Gerando código com IA..."):
             response = client.chat.completions.create(
