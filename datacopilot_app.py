@@ -50,14 +50,6 @@ if uploaded_file:
         Gere apenas o código Python necessário para responder à pergunta, com comentários claros em cada etapa.
         A aplicação será executada em Streamlit, portanto use st.write(...) para exibir todas as saídas.
         Assuma que o DataFrame principal se chama df.
-        Antes de qualquer cálculo ou visualização, identifique automaticamente o tipo de cada variável do DataFrame (numérica, categórica ou textual), e apresente essa lista ao usuário com st.write(...).
-        Para variáveis numéricas que ainda estão no formato texto (object), execute uma limpeza usando as seguintes regras:
-            Se a variável contém apenas números (sem letras), converta para número.
-            Se tiver alguma letra, mantenha o formato como texto (object) e considere como variável qualitativa.
-            Se o valor tem vírgula como separador decimal, troque por ponto.
-            Se houver vírgula como separador de milhar (e ponto como decimal), remova a vírgula.
-            Use pd.to_numeric(..., errors='coerce') para tratar valores inválidos.
-        Não altere colunas categóricas ou com texto descritivo (como nomes, estados, regiões, gênero, escolaridade, faixas etc).
         Gere apenas o código Python executável, com comentários dentro do código. Não inclua explicações escritas fora do código.
         Após esse tratamento, aplique os cálculos necessários com base na pergunta do usuário e apresente os resultados com st.dataframe(...), st.write(...) ou visualizações apropriadas.
         '''
