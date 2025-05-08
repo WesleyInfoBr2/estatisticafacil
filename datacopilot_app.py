@@ -16,7 +16,7 @@ st.markdown("Faça upload de um arquivo CSV e pergunte algo em linguagem natural
 uploaded_file = st.file_uploader("Faça upload do arquivo CSV", type=["csv"])
 
 if uploaded_file:
-    df = pd.read_csv(uploaded_file, sep=";")
+    df = pd.read_csv(uploaded_file, sep=";", decimal=',', thousands='.', encoding='utf-8-sig')
     st.write("Visualização inicial dos dados:")
     st.dataframe(df.head())
 
