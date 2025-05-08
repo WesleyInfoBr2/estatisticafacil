@@ -53,6 +53,7 @@ if uploaded_file:
         Gere apenas o código Python executável, com comentários dentro do código. Não inclua explicações escritas fora do código.
         Gere o código apenas com bibliotecas já importadas.
         Após esse tratamento, aplique os cálculos necessários com base na pergunta do usuário e apresente os resultados com st.dataframe(...), st.write(...) ou visualizações apropriadas.
+        Após qualquer cálculo realizado, inclua também uma interpretação em linguagem humana.
         '''
         with st.spinner("Gerando código com IA..."):
             response = client.chat.completions.create(
