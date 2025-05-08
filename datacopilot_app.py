@@ -36,8 +36,8 @@ if uploaded_file:
             s = s.str.replace('.', '', regex=False).str.replace(',', '.', regex=False)
             df[col] = pd.to_numeric(s, errors='coerce')
     
-    # Exibir os tipos finais após a conversão
-    tipos_finais = df.dtypes
+    st.write("Tipos após tentativa de conversão:")
+    st.write(df.dtypes)
 
     question = st.text_input("O que você quer saber ou fazer com os dados?")
     
