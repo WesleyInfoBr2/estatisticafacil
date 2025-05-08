@@ -67,7 +67,7 @@ if uploaded_file:
 
         with st.expander("Código gerado pela IA:"):
             st.code(code, language="python")
-        with st.expander("Código gerado pela IA (edite se desejar):"):
+        with st.expander("Edite o código se desejar:"):
             code_editado = st.text_area("Edite se desejar:", code, height=300)
 
         run_code = st.checkbox("Executar código?")
