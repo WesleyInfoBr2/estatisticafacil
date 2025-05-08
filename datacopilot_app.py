@@ -9,7 +9,7 @@ import re
 # Configure sua API Key via secrets.toml ou diretamente aqui
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-st.title("DataCopilot - Seu Analista de Dados com IA")
+st.title("EstatísticaFácil - Seu Analista de Dados com IA")
 
 st.markdown("Faça upload de um arquivo CSV e pergunte algo em linguagem natural. A IA vai gerar o código Python, exibir, e você pode decidir se quer rodar.")
 
