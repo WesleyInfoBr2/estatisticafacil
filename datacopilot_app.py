@@ -51,6 +51,7 @@ if uploaded_file:
         A aplicação será executada em Streamlit, portanto use st.write(...) para exibir todas as saídas.
         Assuma que o DataFrame principal se chama df.
         Gere apenas o código Python executável, com comentários dentro do código. Não inclua explicações escritas fora do código.
+        Se o código gerado utilizar um pacote ainda não instalado, é importante que instale antes da execução.
         Após esse tratamento, aplique os cálculos necessários com base na pergunta do usuário e apresente os resultados com st.dataframe(...), st.write(...) ou visualizações apropriadas.
         '''
         with st.spinner("Gerando código com IA..."):
