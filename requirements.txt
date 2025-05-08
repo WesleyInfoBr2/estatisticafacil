@@ -1,4 +1,30 @@
-streamlit 
-openai 
-pandas 
+# Interface
+streamlit
+
+# Manipulação de dados
+pandas
+numpy
+
+# Visualização
 matplotlib
+seaborn
+plotly
+
+# Modelagem estatística e machine learning
+scikit-learn
+scipy
+statsmodels
+xgboost
+lightgbm
+
+# NLP (processamento de texto)
+nltk
+textblob
+
+# Utilidades
+openai
+joblib
+tqdm
+requests
+beautifulsoup4
+lxml
