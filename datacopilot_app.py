@@ -66,9 +66,10 @@ if uploaded_file:
             code = re.sub(r"```$", "", code.strip(), flags=re.MULTILINE)
 
         # st.subheader("Código gerado pela IA:")
-        # st.code(code, language="python")
+        
         st.subheader("Código gerado pela IA (edite se desejar):")
-        code_editado = st.text_area("Código Python:", code, height=300)
+        st.code("Código Python:", code, language="python")
+        code_editado = st.text_area("Edite se desejar:", code, height=300)
 
         run_code = st.checkbox("Executar código?")
         if run_code:
