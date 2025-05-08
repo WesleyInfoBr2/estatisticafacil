@@ -20,6 +20,20 @@ if uploaded_file:
     st.write("Visualização inicial dos dados:")
     st.dataframe(df.head())
 
+    # Função para limpar e converter colunas numéricas que estão como texto
+    def limpar_e_converter_coluna(coluna):
+        coluna = coluna.str.replace('.', '', regex=False).str.replace(',', '.', regex=False)
+        return pd.to_numeric(coluna, errors='coerce')
+    
+    # Aplicar a função às colunas do tipo object
+    for coluna in df.columns:
+        if df[coluna].dtype == 'object':
+            df[coluna] = limpar_e_converter_coluna(df[coluna])
+    
+    # Verificar novamente os tipos
+    st.write("Tipos de variáveis após ajustes:")
+    st.write(df.dtypes)
+
     question = st.text_input("O que você quer saber ou fazer com os dados?")
     
     if question:
