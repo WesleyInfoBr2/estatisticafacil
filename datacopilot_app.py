@@ -20,24 +20,24 @@ if uploaded_file:
     st.write("Visualização inicial dos dados:")
     st.dataframe(df.head())
 
-    # Função para verificar se uma coluna object é potencialmente numérica
-    def eh_potencialmente_numerica(serie):
+    # Lista de colunas do tipo 'object'
+    colunas_obj = df.select_dtypes(include='object').columns
+    
+    # Função para verificar se uma coluna 'object' é potencialmente numérica
+    def coluna_e_numerica(serie):
         amostra = serie.dropna().astype(str).head(10)
         return all(re.match(r"^[\\d\\.,\\s]+$", val) for val in amostra)
     
-    # Função de limpeza e conversão
-    def limpar_e_converter_coluna(coluna):
-        coluna = coluna.str.replace('.', '', regex=False).str.replace(',', '.', regex=False)
-        return pd.to_numeric(coluna, errors='coerce')
+    # Aplicar a limpeza e conversão apenas em colunas objetivamente numéricas
+    for col in colunas_obj:
+        if coluna_e_numerica(df[col]):
+            # Substituições para casos brasileiros: vírgula decimal e ponto de milhar
+            s = df[col].astype(str)
+            s = s.str.replace('.', '', regex=False).str.replace(',', '.', regex=False)
+            df[col] = pd.to_numeric(s, errors='coerce')
     
-    # Aplica somente onde for seguro
-    for coluna in df.columns:
-        if df[coluna].dtype == 'object' and eh_potencialmente_numerica(df[coluna]):
-            df[coluna] = limpar_e_converter_coluna(df[coluna])
-    
-    # Exibe tipos após conversão
-    st.write("Tipos das variáveis:")
-    st.write(df.dtypes)
+    # Exibir os tipos finais após a conversão
+    tipos_finais = df.dtypes
 
     question = st.text_input("O que você quer saber ou fazer com os dados?")
     
