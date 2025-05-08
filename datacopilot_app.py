@@ -38,6 +38,7 @@ if uploaded_file:
             Se houver vírgula como separador de milhar (e ponto como decimal), remova a vírgula.
             Use pd.to_numeric(..., errors='coerce') para tratar valores inválidos.
         Não altere colunas categóricas ou com texto descritivo (como nomes, estados, regiões, gênero, escolaridade, faixas etc).
+        Gere apenas o código Python executável, com comentários dentro do código. Não inclua explicações escritas fora do código.
         Após esse tratamento, aplique os cálculos necessários com base na pergunta do usuário e apresente os resultados com st.dataframe(...), st.write(...) ou visualizações apropriadas.
         '''
         with st.spinner("Gerando código com IA..."):
