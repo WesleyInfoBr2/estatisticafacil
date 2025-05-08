@@ -34,6 +34,7 @@ if uploaded_file:
         Antes de qualquer cálculo ou visualização, identifique automaticamente o tipo de cada variável do DataFrame (numérica, categórica ou textual), e apresente essa lista ao usuário com st.write(...).
         Para variáveis numéricas que ainda estão no formato texto (object), execute uma limpeza usando as seguintes regras:
             Se a variável contém apenas números (sem letras), converta para número.
+            Se tiver alguma letra, mantenha o formato como texto (object) e considere como variável qualitativa.
             Se o valor tem vírgula como separador decimal, troque por ponto.
             Se houver vírgula como separador de milhar (e ponto como decimal), remova a vírgula.
             Use pd.to_numeric(..., errors='coerce') para tratar valores inválidos.
