@@ -191,15 +191,11 @@ if uploaded_file is not None:
             desc = df.describe(include="all").transpose()
             desc_display = pd.DataFrame(index=desc.index)
             desc_display["Tipo da variável"] = df.dtypes.astype(str).values
-            
-            # Corrigido: Calcular Contagem de Únicos para todas as colunas
             unique_counts_list = [df[col_name].nunique() for col_name in df.columns]
             desc_display["Contagem únicos"] = unique_counts_list
-            
             rename_map = {"count": "Contagem", "top": "Valor Mais Comum", "freq": "Frequência Mais Comum", "mean": "Média", "std": "Desvio padrão", "min": "Mínimo", "25%": "25%", "50%": "Mediana", "75%": "75%", "max": "Máximo"}
             for orig, new in rename_map.items():
                 if orig in desc.columns: desc_display[new] = desc[orig]
-            
             desc_display["Primeiro Valor"] = [df[col].iloc[0] if not df[col].empty else None for col in df.columns]
             desc_display["Último Valor"] = [df[col].iloc[-1] if not df[col].empty else None for col in df.columns]
             cv_list = []
@@ -224,13 +220,42 @@ if uploaded_file is not None:
                     fig_box, ax_box = plt.subplots(); box_data = df[sel_num_col].dropna()
                     if not box_data.empty: 
                         sns.boxplot(x=box_data, ax=ax_box); ax_box.set_title(f"Boxplot de {sel_num_col}")
-                        # Corrigido: Calcular Q1 e Q3 separadamente antes de IQR
                         Q1 = box_data.quantile(0.25)
                         Q3 = box_data.quantile(0.75)
                         IQR = Q3 - Q1
                         outliers = box_data[(box_data < Q1 - 1.5 * IQR) | (box_data > Q3 + 1.5 * IQR)]
                         if not outliers.empty: 
-                            for val in outliers: ax_box.text(val, 0, f"{val:.2f}", ha="center", va="bottom", fontsize=8, color="red", bbox=dict(boxstyle="round,pad=0.3", fc="yellow", alpha=0.5))
+                            y_offset_increment = 0.03 # Ajuste este valor conforme necessário para o espaçamento vertical
+                            y_current_offset = - (len(outliers) // 2) * y_offset_increment # Começar abaixo do centro
+                            if len(outliers) % 2 == 0: # Ajuste para número par de outliers para centralizar melhor
+                                y_current_offset += y_offset_increment / 2
+                            
+                            sorted_outliers = sorted(list(outliers))
+                            last_x_pos = -float('inf')
+                            min_x_separation = (box_data.max() - box_data.min()) * 0.02 # Mínima separação horizontal
+
+                            for i, val in enumerate(sorted_outliers):
+                                # Se os outliers estiverem muito próximos horizontalmente, aumentar o deslocamento vertical
+                                if abs(val - last_x_pos) < min_x_separation and i > 0:
+                                    y_current_offset += y_offset_increment * (1.5 if i % 2 == 0 else -1.5) # Aumentar o passo
+                                elif i == 0:
+                                     y_current_offset = 0 # Primeiro outlier no centro
+                                else: # Resetar para alternar em volta do centro se houver espaço
+                                    y_current_offset = y_offset_increment if i % 2 != 0 else -y_offset_increment
+                                
+                                ax_box.text(val, 
+                                            y_current_offset, 
+                                            f"{val:.2f}", 
+                                            ha="center", 
+                                            va="center", # Centralizar verticalmente no offset
+                                            fontsize=8, 
+                                            color="red", 
+                                            bbox=dict(boxstyle="round,pad=0.2", fc="yellow", alpha=0.6))
+                                last_x_pos = val
+                                # Alternar o offset base para o próximo, se não estiver muito próximo
+                                if not (abs(val - last_x_pos) < min_x_separation and i > 0) :
+                                     y_current_offset = y_offset_increment if y_current_offset <=0 else -y_offset_increment
+
                         st.pyplot(fig_box); plt.close(fig_box)
                     else: st.write(f"Coluna {sel_num_col} sem dados para boxplot.")
             
@@ -255,8 +280,8 @@ if uploaded_file is not None:
             Gere apenas o código Python necessário para responder à pergunta, com comentários claros e interpretação usando st.write() ou st.markdown().
             Use bibliotecas já importadas: pandas as pd, matplotlib.pyplot as plt, streamlit as st, io, seaborn as sns, numpy as np.
             Não use exec() ou eval(). Não leia/escreva arquivos. Feche figuras plt com plt.close(fig).
-            Exemplo de média: media = df['col'].mean(); st.write(f"Média: {{media}}"); st.markdown("Interpretação...")
-            Exemplo de histograma: fig, ax = plt.subplots(); sns.histplot(df['col'], ax=ax); st.pyplot(fig); plt.close(fig); st.markdown("Interpretação...")
+            Exemplo de média: media = df["col"].mean(); st.write(f"Média: {{media}}"); st.markdown("Interpretação...")
+            Exemplo de histograma: fig, ax = plt.subplots(); sns.histplot(df["col"], ax=ax); st.pyplot(fig); plt.close(fig); st.markdown("Interpretação...")
             Sua resposta (apenas o bloco de código Python):
             """
 
@@ -270,11 +295,11 @@ if uploaded_file is not None:
                 st.code(code, language="python")
             st.warning("⚠️ **Atenção:** O código abaixo foi gerado por uma IA. Revise antes de executar.")
             
-            code_editor_key_area = f"code_editor_{current_widget_prefix}_{question[:15].replace(' ','_')}"
+            code_editor_key_area = f"code_editor_{current_widget_prefix}_{question[:15].replace(" ","_")}"
             with st.expander("Edite o código se desejar (AVANÇADO):"):
                 code_editado = st.text_area("Edite o código Python aqui:", code, height=300, key=code_editor_key_area)
 
-            run_code_key_check = f"run_code_checkbox_{current_widget_prefix}_{question[:15].replace(' ','_')}"
+            run_code_key_check = f"run_code_checkbox_{current_widget_prefix}_{question[:15].replace(" ","_")}"
             run_code = st.checkbox("Sim, entendo os riscos e desejo executar o código.", key=run_code_key_check)
             
             if run_code and code_editado.strip():
@@ -295,5 +320,4 @@ elif uploaded_file is None and st.session_state.last_uploaded_file_id is None:
 
 st.markdown("---_---")
 st.markdown("Desenvolvido como um protótipo. Use com cautela.")
-
 
