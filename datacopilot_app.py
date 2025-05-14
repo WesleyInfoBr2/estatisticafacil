@@ -46,12 +46,12 @@ if uploaded_file:
         # Limpar chaves de widgets dinâmicos da sessão anterior
         # Isso é uma abordagem mais explícita para limpar o estado de widgets antigos.
         for key in list(st.session_state.keys()):
-            if key.startswith("sheet_selector_") or \ 
-               key.startswith("show_analysis_checkbox_") or \ 
-               key.startswith("col_num_select_") or \ 
-               key.startswith("col_cat_select_") or \ 
-               key.startswith("question_input_") or \ 
-               key.startswith("code_editor_") or \ 
+            if key.startswith("sheet_selector_") or \
+               key.startswith("show_analysis_checkbox_") or \
+               key.startswith("col_num_select_") or \
+               key.startswith("col_cat_select_") or \
+               key.startswith("question_input_") or \
+               key.startswith("code_editor_") or \
                key.startswith("run_code_checkbox_"):
                 del st.session_state[key]
         st.session_state.uploader_key += 1
