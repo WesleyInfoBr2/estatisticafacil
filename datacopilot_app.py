@@ -10,7 +10,7 @@ import csv
 # Configure sua API Key via secrets.toml ou diretamente aqui
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-st.set_option("deprecation.showPyplotGlobalUse", False) # Para suprimir aviso do st.pyplot()
+# st.set_option("deprecation.showPyplotGlobalUse", False) # Removido/Comentado - Opção obsoleta
 
 st.title("EstatísticaFácil - Seu Analista de Dados com IA")
 
@@ -40,7 +40,6 @@ if uploaded_file:
                 dialect = sniffer.sniff(sample_text)
                 st.session_state.df = pd.read_csv(uploaded_file, sep=dialect.delimiter, encoding="utf-8-sig", on_bad_lines="warn")
             except (csv.Error, UnicodeDecodeError) as e_sniff:
-                # Corrigido: Uso de aspas simples para os caracteres literais dentro da f-string
                 st.warning(f"Não foi possível detectar o separador/encoding automaticamente para CSV: {e_sniff}. Tentando com separadores comuns (';' e ',') e encoding utf-8.")
                 uploaded_file.seek(0)
                 try:
@@ -51,7 +50,6 @@ if uploaded_file:
         elif file_extension == "xlsx":
             st.session_state.df = pd.read_excel(uploaded_file, engine="openpyxl")
         elif file_extension == "txt": 
-            # Corrigido: Uso de aspas simples para os caracteres literais dentro da string informativa
             st.info("Para arquivos TXT, tentaremos inferir o delimitador (tab, ';', ou ','). Pode ser necessário ajustar manualmente se a leitura falhar.")
             sniffer = csv.Sniffer()
             try:
@@ -61,7 +59,6 @@ if uploaded_file:
                 dialect = sniffer.sniff(sample_text)
                 st.session_state.df = pd.read_csv(uploaded_file, sep=dialect.delimiter, encoding="utf-8-sig", on_bad_lines="warn")
             except (csv.Error, UnicodeDecodeError) as e_sniff_txt:
-                # Corrigido: Uso de aspas simples para os caracteres literais dentro da f-string
                 st.warning(f"Não foi possível detectar o separador/encoding para TXT: {e_sniff_txt}. Tentando com tab, ';' e ','.")
                 uploaded_file.seek(0)
                 try:
@@ -205,6 +202,7 @@ if st.session_state.df is not None:
     question = st.text_input("O que você quer saber ou fazer com os dados?")
     
     if question:
+        # Revisão das f-strings nos exemplos few-shot para garantir uso correto de aspas e interpolação
         prompt = f"""
         Você é um analista de dados em Python. Recebeu o seguinte DataFrame (df):
         Primeiras linhas:
@@ -231,8 +229,10 @@ if st.session_state.df is not None:
             media_idade = df['idade'].mean()
             st.write(f"A média de idade é: {media_idade:.2f}")
             # Interpretação
-            st.markdown(f"A idade média dos indivíduos na base de dados é de {media_idade:.2f} anos. 
-            Isso nos dá uma medida central da faixa etária predominante." )
+            # Usando aspas triplas para a string principal do markdown e f-string para interpolação.
+            # As quebras de linha dentro das aspas triplas são preservadas.
+            st.markdown(f"""A idade média dos indivíduos na base de dados é de {media_idade:.2f} anos. 
+            Isso nos dá uma medida central da faixa etária predominante.""" )
         else:
             st.warning("A coluna 'idade' não foi encontrada no DataFrame.")
         ```
@@ -251,9 +251,9 @@ if st.session_state.df is not None:
                 st.pyplot(fig)
                 plt.close(fig) # Importante para liberar memória
                 # Interpretação
-                st.markdown(f"O histograma acima mostra a distribuição dos valores de compra. 
+                st.markdown(f"""O histograma acima mostra a distribuição dos valores de compra. 
                 Podemos observar a frequência de compras em diferentes faixas de valor, 
-                ajudando a identificar os tickets mais comuns." )
+                ajudando a identificar os tickets mais comuns.""" )
             else:
                 st.warning("A coluna 'valor_compra' não é numérica e não pode ser usada para um histograma diretamente.")
         else:
@@ -325,7 +325,7 @@ if st.session_state.df is not None:
                         "__builtins__": allowed_builtins,
                         "pd": pd,
                         "plt": plt,
-                        "sns": sns, # Adicionado seaborn aos globals seguros
+                        "sns": sns, 
                         "st": st,
                         "df": df.copy(), 
                         "io": io,
@@ -350,6 +350,7 @@ else:
 
 st.markdown("---_---")
 st.markdown("Desenvolvido como um protótipo. Use com cautela.")
+
 
 
 
