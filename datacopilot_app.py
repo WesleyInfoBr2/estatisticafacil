@@ -12,7 +12,8 @@ import numpy as np
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 st.title("EstatísticaFácil - Seu Analista de Dados com IA")
-st.markdown("Faça upload de um arquivo CSV, XLSX ou TXT e pergunte algo em linguagem natural. A IA vai gerar o código Python, exibir, e você pode decidir se quer rodar." )
+st.markdown("""Faça upload de um arquivo CSV, XLSX ou TXT e pergunte algo em linguagem natural. 
+A IA vai gerar o código Python, exibir, e você pode decidir se quer rodar.""" )
 
 # Inicializar st.session_state se não existir
 if "df" not in st.session_state: st.session_state.df = None
@@ -20,24 +21,16 @@ if "dfs_dict" not in st.session_state: st.session_state.dfs_dict = None
 if "selected_sheet_name" not in st.session_state: st.session_state.selected_sheet_name = None
 if "show_initial_analysis" not in st.session_state: st.session_state.show_initial_analysis = False
 if "last_uploaded_file_id" not in st.session_state: st.session_state.last_uploaded_file_id = None
-# widget_key_prefix é usado para garantir que os widgets sejam recriados quando um novo arquivo é carregado
 if "widget_key_prefix" not in st.session_state: st.session_state.widget_key_prefix = "initial_prefix"
 
-
-# --- Callback para resetar estado quando o arquivo é removido do uploader --- 
 def on_file_uploader_change():
-    # Esta função é chamada quando o st.file_uploader muda (arquivo carregado ou removido)
-    # Se o widget file_uploader_main (que é o nosso uploaded_file) se tornar None, 
-    # significa que o usuário limpou o arquivo.
     if st.session_state.file_uploader_main is None and st.session_state.last_uploaded_file_id is not None:
-        # Arquivo foi removido pelo usuário
         st.session_state.df = None
         st.session_state.dfs_dict = None
         st.session_state.selected_sheet_name = None
         st.session_state.show_initial_analysis = False
         st.session_state.last_uploaded_file_id = None
-        st.session_state.widget_key_prefix = f"cleared_{np.random.randint(10000)}" # Novo prefixo para forçar recriação de widgets
-        # Limpar chaves de widgets dinâmicos da sessão anterior explicitamente
+        st.session_state.widget_key_prefix = f"cleared_{np.random.randint(10000)}"
         keys_to_delete = [k for k in st.session_state.keys() if not k.startswith(st.session_state.widget_key_prefix) and 
                           any(k.startswith(p) for p in ["sheet_selector_", "show_analysis_checkbox_", 
                                                        "col_num_select_", "col_cat_select_", 
@@ -56,16 +49,9 @@ if uploaded_file is not None:
         process_new_file = True
         st.session_state.last_uploaded_file_id = uploaded_file.file_id
         st.session_state.widget_key_prefix = f"file_{uploaded_file.file_id}"
-
-        # Resetar estado dependente do arquivo para um novo upload
         st.session_state.df = None
         st.session_state.dfs_dict = None
         st.session_state.selected_sheet_name = None
-        # Não resetar show_initial_analysis aqui, pois o checkbox controlará seu próprio estado com a nova chave
-        # st.session_state.show_initial_analysis = False 
-
-        # Limpar chaves de widgets dinâmicos da sessão anterior (se o prefixo mudou)
-        # Esta limpeza é mais para o caso de trocas rápidas de arquivos, o prefixo já ajuda.
         keys_to_delete = []
         for k in st.session_state.keys():
             is_dynamic_widget_key = any(k.startswith(p) for p in ["sheet_selector_", "show_analysis_checkbox_", 
@@ -76,7 +62,6 @@ if uploaded_file is not None:
         for key_del in keys_to_delete:
             if key_del in st.session_state: del st.session_state[key_del]
 
-    # Se é um novo arquivo, processá-lo (ler e popular dfs_dict, df inicial)
     if process_new_file:
         file_extension = uploaded_file.name.split(".")[-1].lower()
         try:
@@ -88,93 +73,64 @@ if uploaded_file is not None:
                     df_temp = pd.read_csv(uploaded_file, sep=dialect.delimiter, encoding="utf-8-sig", on_bad_lines="warn")
                 except (csv.Error, UnicodeDecodeError):
                     uploaded_file.seek(0); df_temp = pd.read_csv(uploaded_file, sep=";", encoding="utf-8-sig", on_bad_lines="warn", skipinitialspace=True)
-                    if df_temp.shape[1] == 1: # Provavelmente leu errado, tentar com vírgula
+                    if df_temp.shape[1] == 1:
                         uploaded_file.seek(0); df_temp = pd.read_csv(uploaded_file, sep=",", encoding="utf-8-sig", on_bad_lines="warn", skipinitialspace=True)
                 st.session_state.dfs_dict = {"CSV_Data": df_temp}
                 st.session_state.selected_sheet_name = "CSV_Data"
-
             elif file_extension == "xlsx":
                 excel_file = pd.ExcelFile(uploaded_file)
                 sheet_names = excel_file.sheet_names
                 if not sheet_names:
                     st.error("O arquivo XLSX não contém planilhas."); st.stop()
                 st.session_state.dfs_dict = {name: excel_file.parse(name) for name in sheet_names}
-                st.session_state.selected_sheet_name = sheet_names[0] # Padrão para a primeira planilha
-            
+                st.session_state.selected_sheet_name = sheet_names[0]
             elif file_extension == "txt":
-                # Lógica de leitura de TXT (simplificada, pode precisar de mais robustez)
                 try:
                     sample_bytes = uploaded_file.read(2048); uploaded_file.seek(0)
                     dialect = csv.Sniffer().sniff(sample_bytes.decode("utf-8-sig"))
                     df_temp = pd.read_csv(uploaded_file, sep=dialect.delimiter, encoding="utf-8-sig", on_bad_lines="warn")
                 except (csv.Error, UnicodeDecodeError):
-                    uploaded_file.seek(0); df_temp = pd.read_csv(uploaded_file, sep="\t", encoding="utf-8-sig", on_bad_lines="warn") # Tentar tab
+                    uploaded_file.seek(0); df_temp = pd.read_csv(uploaded_file, sep="\t", encoding="utf-8-sig", on_bad_lines="warn")
                 st.session_state.dfs_dict = {"TXT_Data": df_temp}
                 st.session_state.selected_sheet_name = "TXT_Data"
             else:
                 st.error("Formato de arquivo não suportado."); st.stop()
-            
-            # Definir o df inicial com base na primeira planilha/dados lidos
             if st.session_state.selected_sheet_name and st.session_state.dfs_dict:
                 st.session_state.df = st.session_state.dfs_dict[st.session_state.selected_sheet_name]
             else:
                  st.error("Não foi possível carregar dados da planilha selecionada."); st.stop()
-
         except Exception as e:
             st.error(f"Erro ao ler o arquivo {uploaded_file.name}: {e}")
-            st.session_state.last_uploaded_file_id = None # Resetar para permitir novo processamento
+            st.session_state.last_uploaded_file_id = None
             st.stop()
 
-    # --- Lógica para seleção de planilha (para XLSX com múltiplas planilhas) --- 
     if uploaded_file.name.endswith(".xlsx") and st.session_state.dfs_dict and len(st.session_state.dfs_dict) > 1:
         sheet_names_list = list(st.session_state.dfs_dict.keys())
         selectbox_key_sheet = f"sheet_selector_{st.session_state.widget_key_prefix}"
-
-        # Garantir que selected_sheet_name seja válido ou defina um padrão
         current_selected_sheet_from_session = st.session_state.get("selected_sheet_name", sheet_names_list[0])
         if current_selected_sheet_from_session not in sheet_names_list:
             current_selected_sheet_from_session = sheet_names_list[0]
-        
         default_sheet_index = sheet_names_list.index(current_selected_sheet_from_session)
-
         def update_df_on_sheet_selection_change():
             new_sheet_name = st.session_state[selectbox_key_sheet]
             if new_sheet_name in st.session_state.dfs_dict:
                 st.session_state.selected_sheet_name = new_sheet_name
                 st.session_state.df = st.session_state.dfs_dict[new_sheet_name]
-            # Não resetar outros estados aqui, apenas o df principal e selected_sheet_name.
-
-        selected_sheet_val = st.selectbox(
-            "Selecione a planilha para análise:", 
-            sheet_names_list, 
-            key=selectbox_key_sheet,
-            index=default_sheet_index,
-            on_change=update_df_on_sheet_selection_change
-        )
-        # Após o selectbox, garantir que selected_sheet_name e df estejam sincronizados com o valor do widget
-        # O callback deve cuidar disso, mas uma verificação extra pode ser útil se o callback não rodar imediatamente no re-run
-        if st.session_state[selectbox_key_sheet] != st.session_state.selected_sheet_name:
-             if st.session_state[selectbox_key_sheet] in st.session_state.dfs_dict:
+        selected_sheet_val = st.selectbox("Selecione a planilha para análise:", sheet_names_list, key=selectbox_key_sheet, index=default_sheet_index, on_change=update_df_on_sheet_selection_change)
+        if st.session_state.get(selectbox_key_sheet) != st.session_state.selected_sheet_name:
+             if st.session_state.get(selectbox_key_sheet) in st.session_state.dfs_dict:
                 st.session_state.selected_sheet_name = st.session_state[selectbox_key_sheet]
                 st.session_state.df = st.session_state.dfs_dict[st.session_state.selected_sheet_name]
 
-    # --- O restante do código que usa st.session_state.df --- 
     if st.session_state.df is not None:
-        df = st.session_state.df # Usar o df da sessão
+        df = st.session_state.df
         current_widget_prefix = st.session_state.widget_key_prefix
-
         if st.session_state.selected_sheet_name and st.session_state.dfs_dict and len(st.session_state.dfs_dict) > 1 and uploaded_file.name.endswith(".xlsx"):
             st.write(f"Analisando planilha: **{st.session_state.selected_sheet_name}**")
-        
         st.write("Visualização inicial dos dados:")
         st.dataframe(df.head())
 
-        # ... (resto do código: coluna_e_numerica, robust_convert_to_numeric, processamento, checkboxes, gráficos, IA) ...
-        # Substituir todas as chaves dinâmicas para usar current_widget_prefix
-        # Ex: checkbox_key = f"show_analysis_checkbox_{current_widget_prefix}"
-
         colunas_obj = df.select_dtypes(include="object").columns
-
         def coluna_e_numerica(serie):
             amostra = serie.dropna().astype(str)
             if amostra.empty: return False
@@ -225,7 +181,6 @@ if uploaded_file is not None:
         df = st.session_state.df
 
         checkbox_key_analysis = f"show_analysis_checkbox_{current_widget_prefix}"
-        # Usar st.session_state.get para o value do checkbox para evitar erro se a chave não existir no primeiro run
         st.session_state.show_initial_analysis = st.checkbox("Mostrar Análise Inicial (Estatísticas e Gráficos Padrão)?", 
                                                            value=st.session_state.get(checkbox_key_analysis, False), 
                                                            key=checkbox_key_analysis)
@@ -236,9 +191,15 @@ if uploaded_file is not None:
             desc = df.describe(include="all").transpose()
             desc_display = pd.DataFrame(index=desc.index)
             desc_display["Tipo da variável"] = df.dtypes.astype(str).values
-            rename_map = {"count": "Contagem", "unique": "Contagem únicos", "top": "Valor Mais Comum", "freq": "Frequência Mais Comum", "mean": "Média", "std": "Desvio padrão", "min": "Mínimo", "25%": "25%", "50%": "Mediana", "75%": "75%", "max": "Máximo"}
+            
+            # Corrigido: Calcular Contagem de Únicos para todas as colunas
+            unique_counts_list = [df[col_name].nunique() for col_name in df.columns]
+            desc_display["Contagem únicos"] = unique_counts_list
+            
+            rename_map = {"count": "Contagem", "top": "Valor Mais Comum", "freq": "Frequência Mais Comum", "mean": "Média", "std": "Desvio padrão", "min": "Mínimo", "25%": "25%", "50%": "Mediana", "75%": "75%", "max": "Máximo"}
             for orig, new in rename_map.items():
                 if orig in desc.columns: desc_display[new] = desc[orig]
+            
             desc_display["Primeiro Valor"] = [df[col].iloc[0] if not df[col].empty else None for col in df.columns]
             desc_display["Último Valor"] = [df[col].iloc[-1] if not df[col].empty else None for col in df.columns]
             cv_list = []
@@ -263,7 +224,10 @@ if uploaded_file is not None:
                     fig_box, ax_box = plt.subplots(); box_data = df[sel_num_col].dropna()
                     if not box_data.empty: 
                         sns.boxplot(x=box_data, ax=ax_box); ax_box.set_title(f"Boxplot de {sel_num_col}")
-                        Q1, Q3, IQR = box_data.quantile(0.25), box_data.quantile(0.75), Q3 - Q1
+                        # Corrigido: Calcular Q1 e Q3 separadamente antes de IQR
+                        Q1 = box_data.quantile(0.25)
+                        Q3 = box_data.quantile(0.75)
+                        IQR = Q3 - Q1
                         outliers = box_data[(box_data < Q1 - 1.5 * IQR) | (box_data > Q3 + 1.5 * IQR)]
                         if not outliers.empty: 
                             for val in outliers: ax_box.text(val, 0, f"{val:.2f}", ha="center", va="bottom", fontsize=8, color="red", bbox=dict(boxstyle="round,pad=0.3", fc="yellow", alpha=0.5))
@@ -281,10 +245,6 @@ if uploaded_file is not None:
         question = st.text_input("O que você quer saber ou fazer com os dados?", key=question_key_input)
         
         if question:
-            prompt = f"""... (prompt da IA inalterado) ...""" # Mantido o prompt original por brevidade
-            # (O prompt completo da IA está no código original e é longo)
-            # Certifique-se de que o prompt completo seja usado aqui.
-            # Para este exemplo, vou usar um prompt placeholder:
             prompt_completo = f"""
             Você é um analista de dados em Python. Recebeu o seguinte DataFrame (df):
             Primeiras linhas:
@@ -295,7 +255,7 @@ if uploaded_file is not None:
             Gere apenas o código Python necessário para responder à pergunta, com comentários claros e interpretação usando st.write() ou st.markdown().
             Use bibliotecas já importadas: pandas as pd, matplotlib.pyplot as plt, streamlit as st, io, seaborn as sns, numpy as np.
             Não use exec() ou eval(). Não leia/escreva arquivos. Feche figuras plt com plt.close(fig).
-            Exemplo de média: media = df['col'].mean(); st.write(f"Média: {media}"); st.markdown("Interpretação...")
+            Exemplo de média: media = df['col'].mean(); st.write(f"Média: {{media}}"); st.markdown("Interpretação...")
             Exemplo de histograma: fig, ax = plt.subplots(); sns.histplot(df['col'], ax=ax); st.pyplot(fig); plt.close(fig); st.markdown("Interpretação...")
             Sua resposta (apenas o bloco de código Python):
             """
@@ -321,7 +281,7 @@ if uploaded_file is not None:
                 try:
                     allowed_builtins = {k: v for k, v in __builtins__.__dict__.items() if k in ["print", "len", "range", "list", "dict", "str", "int", "float", "bool", "True", "False", "None", "max", "min", "sum", "abs", "round", "all", "any", "isinstance", "getattr", "hasattr", "Exception", "ValueError", "TypeError", "KeyError", "IndexError", "sorted", "zip", "map", "filter", "enumerate", "reversed", "set", "tuple"]}
                     safe_globals = {"__builtins__": allowed_builtins, "pd": pd, "plt": plt, "sns": sns, "np": np, "st": st, "df": df.copy(), "io": io}
-                    compile(code_editado, "<string>", "exec") # Validar sintaxe antes
+                    compile(code_editado, "<string>", "exec")
                     exec(code_editado, safe_globals)
                 except Exception as e:
                     st.error(f"Erro ao executar o código: {e}")
