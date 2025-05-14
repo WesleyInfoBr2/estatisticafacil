@@ -251,9 +251,9 @@ if st.session_state.df is not None:
                 st.pyplot(fig)
                 plt.close(fig) # Importante para liberar memória
                 # Interpretação
-                st.markdown(f"""O histograma acima mostra a distribuição dos valores de compra. 
+                st.markdown(f"O histograma acima mostra a distribuição dos valores de compra. 
                 Podemos observar a frequência de compras em diferentes faixas de valor, 
-                ajudando a identificar os tickets mais comuns.""" )
+                ajudando a identificar os tickets mais comuns." )
             else:
                 st.warning("A coluna 'valor_compra' não é numérica e não pode ser usada para um histograma diretamente.")
         else:
