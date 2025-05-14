@@ -13,8 +13,8 @@ client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 st.title("EstatísticaFácil - Seu Analista de Dados com IA")
 
-st.markdown("""Faça upload de um arquivo CSV, XLSX ou TXT e pergunte algo em linguagem natural. 
-A IA vai gerar o código Python, exibir, e você pode decidir se quer rodar.""" )
+st.markdown("Faça upload de um arquivo CSV, XLSX ou TXT e pergunte algo em linguagem natural. 
+A IA vai gerar o código Python, exibir, e você pode decidir se quer rodar." )
 
 # Inicializar st.session_state se não existir
 if "df" not in st.session_state:
@@ -349,8 +349,8 @@ if st.session_state.df is not None and uploaded_file is not None: # Adicionado c
             media_idade = df['idade'].mean()
             st.write(f"A média de idade é: {media_idade:.2f}")
             # Interpretação
-            st.markdown(f"""A idade média dos indivíduos na base de dados é de {media_idade:.2f} anos. 
-            Isso nos dá uma medida central da faixa etária predominante.""" )
+            st.markdown(f"A idade média dos indivíduos na base de dados é de {media_idade:.2f} anos. 
+            Isso nos dá uma medida central da faixa etária predominante." )
         else:
             st.warning("A coluna 'idade' não foi encontrada no DataFrame.")
         ```
@@ -368,9 +368,9 @@ if st.session_state.df is not None and uploaded_file is not None: # Adicionado c
                 ax.set_ylabel("Frequência")
                 st.pyplot(fig)
                 plt.close(fig) 
-                st.markdown(f"""O histograma acima mostra a distribuição dos valores de compra. 
+                st.markdown(f"O histograma acima mostra a distribuição dos valores de compra. 
                 Podemos observar a frequência de compras em diferentes faixas de valor, 
-                ajudando a identificar os tickets mais comuns.""" )
+                ajudando a identificar os tickets mais comuns." )
             else:
                 st.warning("A coluna 'valor_compra' não é numérica e não pode ser usada para um histograma diretamente.")
         else:
