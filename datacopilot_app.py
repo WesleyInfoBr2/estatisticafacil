@@ -3,14 +3,13 @@ import pandas as pd
 from openai import OpenAI
 import io
 import matplotlib.pyplot as plt
-import seaborn as sns # Adicionado para gráficos padrão
+import seaborn as sns
 import re
 import csv
+import numpy as np # Adicionado para coeficiente de variação
 
 # Configure sua API Key via secrets.toml ou diretamente aqui
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-
-# st.set_option("deprecation.showPyplotGlobalUse", False) # Removido/Comentado - Opção obsoleta
 
 st.title("EstatísticaFácil - Seu Analista de Dados com IA")
 
@@ -19,14 +18,19 @@ st.markdown("Faça upload de um arquivo CSV, XLSX ou TXT e pergunte algo em ling
 # Inicializar st.session_state se não existir
 if "df" not in st.session_state:
     st.session_state.df = None
+if "dfs_dict" not in st.session_state: # Para armazenar múltiplos dataframes de XLSX
+    st.session_state.dfs_dict = None
+if "selected_sheet_name" not in st.session_state:
+    st.session_state.selected_sheet_name = None
 if "show_initial_analysis" not in st.session_state:
     st.session_state.show_initial_analysis = False
 
 uploaded_file = st.file_uploader("Faça upload do arquivo (CSV, XLSX, TXT)", type=["csv", "xlsx", "txt"])
 
 if uploaded_file:
-    # Limpar estado anterior ao carregar novo arquivo
-    st.session_state.df = None 
+    st.session_state.df = None
+    st.session_state.dfs_dict = None
+    st.session_state.selected_sheet_name = None
     st.session_state.show_initial_analysis = False
 
     file_extension = uploaded_file.name.split(".")[-1].lower()
@@ -34,42 +38,67 @@ if uploaded_file:
         if file_extension == "csv":
             sniffer = csv.Sniffer()
             try:
-                sample_bytes = uploaded_file.read(2048) 
-                uploaded_file.seek(0) 
-                sample_text = sample_bytes.decode("utf-8-sig") 
+                sample_bytes = uploaded_file.read(2048)
+                uploaded_file.seek(0)
+                sample_text = sample_bytes.decode("utf-8-sig")
                 dialect = sniffer.sniff(sample_text)
-                st.session_state.df = pd.read_csv(uploaded_file, sep=dialect.delimiter, encoding="utf-8-sig", on_bad_lines="warn")
+                df_temp = pd.read_csv(uploaded_file, sep=dialect.delimiter, encoding="utf-8-sig", on_bad_lines="warn")
+                st.session_state.dfs_dict = {"CSV_Data": df_temp}
+                st.session_state.selected_sheet_name = "CSV_Data"
+                st.session_state.df = df_temp
             except (csv.Error, UnicodeDecodeError) as e_sniff:
-                st.warning(f"Não foi possível detectar o separador/encoding automaticamente para CSV: {e_sniff}. Tentando com separadores comuns (';' e ',') e encoding utf-8.")
+                st.warning(f"Não foi possível detectar o separador/encoding automaticamente para CSV: {e_sniff}. Tentando com separadores comuns (";" e ",") e encoding utf-8.")
                 uploaded_file.seek(0)
                 try:
-                    st.session_state.df = pd.read_csv(uploaded_file, sep=";", encoding="utf-8-sig", on_bad_lines="warn")
+                    df_temp = pd.read_csv(uploaded_file, sep=";", encoding="utf-8-sig", on_bad_lines="warn")
                 except Exception:
                     uploaded_file.seek(0)
-                    st.session_state.df = pd.read_csv(uploaded_file, sep=",", encoding="utf-8-sig", on_bad_lines="warn")
+                    df_temp = pd.read_csv(uploaded_file, sep=",", encoding="utf-8-sig", on_bad_lines="warn")
+                st.session_state.dfs_dict = {"CSV_Data": df_temp}
+                st.session_state.selected_sheet_name = "CSV_Data"
+                st.session_state.df = df_temp
         elif file_extension == "xlsx":
-            st.session_state.df = pd.read_excel(uploaded_file, engine="openpyxl")
-        elif file_extension == "txt": 
-            st.info("Para arquivos TXT, tentaremos inferir o delimitador (tab, ';', ou ','). Pode ser necessário ajustar manualmente se a leitura falhar.")
+            excel_file = pd.ExcelFile(uploaded_file)
+            sheet_names = excel_file.sheet_names
+            st.session_state.dfs_dict = {name: excel_file.parse(name) for name in sheet_names}
+            
+            if len(sheet_names) == 1:
+                st.session_state.selected_sheet_name = sheet_names[0]
+                st.session_state.df = st.session_state.dfs_dict[sheet_names[0]]
+            elif len(sheet_names) > 1:
+                # Usar um novo key para o selectbox se ele já foi usado antes, para resetar
+                selectbox_key = f"sheet_selector_{uploaded_file.id}"
+                st.session_state.selected_sheet_name = st.selectbox("Selecione a planilha para análise:", sheet_names, key=selectbox_key)
+                if st.session_state.selected_sheet_name:
+                    st.session_state.df = st.session_state.dfs_dict[st.session_state.selected_sheet_name]
+            else:
+                st.error("O arquivo XLSX não contém planilhas.")
+                st.session_state.df = None
+
+        elif file_extension == "txt":
+            st.info("Para arquivos TXT, tentaremos inferir o delimitador (tab, ";", ou ","). Pode ser necessário ajustar manualmente se a leitura falhar.")
             sniffer = csv.Sniffer()
             try:
                 sample_bytes = uploaded_file.read(2048)
                 uploaded_file.seek(0)
                 sample_text = sample_bytes.decode("utf-8-sig")
                 dialect = sniffer.sniff(sample_text)
-                st.session_state.df = pd.read_csv(uploaded_file, sep=dialect.delimiter, encoding="utf-8-sig", on_bad_lines="warn")
+                df_temp = pd.read_csv(uploaded_file, sep=dialect.delimiter, encoding="utf-8-sig", on_bad_lines="warn")
             except (csv.Error, UnicodeDecodeError) as e_sniff_txt:
-                st.warning(f"Não foi possível detectar o separador/encoding para TXT: {e_sniff_txt}. Tentando com tab, ';' e ','.")
+                st.warning(f"Não foi possível detectar o separador/encoding para TXT: {e_sniff_txt}. Tentando com tab, ";" e ",".")
                 uploaded_file.seek(0)
                 try:
-                    st.session_state.df = pd.read_csv(uploaded_file, sep="\t", encoding="utf-8-sig", on_bad_lines="warn")
+                    df_temp = pd.read_csv(uploaded_file, sep="\t", encoding="utf-8-sig", on_bad_lines="warn")
                 except Exception:
                     uploaded_file.seek(0)
                     try:
-                        st.session_state.df = pd.read_csv(uploaded_file, sep=";", encoding="utf-8-sig", on_bad_lines="warn")
+                        df_temp = pd.read_csv(uploaded_file, sep=";", encoding="utf-8-sig", on_bad_lines="warn")
                     except Exception:
                         uploaded_file.seek(0)
-                        st.session_state.df = pd.read_csv(uploaded_file, sep=",", encoding="utf-8-sig", on_bad_lines="warn")
+                        df_temp = pd.read_csv(uploaded_file, sep=",", encoding="utf-8-sig", on_bad_lines="warn")
+            st.session_state.dfs_dict = {"TXT_Data": df_temp}
+            st.session_state.selected_sheet_name = "TXT_Data"
+            st.session_state.df = df_temp
         else:
             st.error("Formato de arquivo não suportado. Por favor, faça upload de CSV, XLSX ou TXT.")
             st.session_state.df = None
@@ -77,9 +106,13 @@ if uploaded_file:
     except Exception as e:
         st.error(f"Erro ao ler o arquivo {uploaded_file.name}: {e}")
         st.session_state.df = None
+        st.session_state.dfs_dict = None
 
 if st.session_state.df is not None:
-    df = st.session_state.df # Usar o df do session_state
+    df = st.session_state.df 
+    if st.session_state.selected_sheet_name and st.session_state.dfs_dict and len(st.session_state.dfs_dict) > 1 and file_extension == "xlsx":
+        st.write(f"Analisando planilha: **{st.session_state.selected_sheet_name}**")
+    
     st.write("Visualização inicial dos dados:")
     st.dataframe(df.head())
 
@@ -142,36 +175,72 @@ if st.session_state.df is not None:
             except ValueError:
                 return None
 
+    df_processed = df.copy()
     for col in colunas_obj:
-        if coluna_e_numerica(df[col]):
-            sample_for_percentage_check = df[col].dropna().astype(str).head(50)
+        if coluna_e_numerica(df_processed[col]):
+            sample_for_percentage_check = df_processed[col].dropna().astype(str).head(50)
             percentage_count = sample_for_percentage_check.str.endswith("%").sum()
             is_percentage_col = percentage_count > len(sample_for_percentage_check) * 0.5
-            df[col] = df[col].apply(lambda x: robust_convert_to_numeric(x, is_percentage_col))
+            df_processed[col] = df_processed[col].apply(lambda x: robust_convert_to_numeric(x, is_percentage_col))
             try:
-                if df[col].dropna().apply(lambda x: x == int(x) if pd.notnull(x) else True).all():
-                    df[col] = df[col].astype("Int64")
+                if df_processed[col].dropna().apply(lambda x: pd.notnull(x) and x == int(x)).all():
+                    df_processed[col] = df_processed[col].astype("Int64")
             except Exception:
                 pass 
     
-    st.write("Tipos após tentativa de conversão robusta:")
-    st.write(df.dtypes)
-    st.session_state.df = df # Atualizar o df no session_state após conversão
+    st.session_state.df = df_processed
+    df = st.session_state.df
 
-    # --- Funcionalidade de Análise Inicial --- 
-    st.session_state.show_initial_analysis = st.checkbox("Mostrar Análise Inicial (Estatísticas e Gráficos Padrão)?", value=st.session_state.show_initial_analysis)
+    checkbox_key = f"show_analysis_checkbox_{uploaded_file.id}"
+    st.session_state.show_initial_analysis = st.checkbox("Mostrar Análise Inicial (Estatísticas e Gráficos Padrão)?", value=st.session_state.get(checkbox_key, False), key=checkbox_key)
 
     if st.session_state.show_initial_analysis:
         st.subheader("Análise Descritiva Inicial")
         st.write("Estatísticas Descritivas Gerais:")
-        st.dataframe(df.describe(include="all"))
+        
+        desc = df.describe(include="all").transpose()
+        desc_display = pd.DataFrame()
+        desc_display["Tipo da variável"] = df.dtypes.astype(str)
+        
+        rename_map = {
+            "count": "Contagem", "unique": "Contagem únicos", "top": "Primeiro",
+            "freq": "Frequência do Primeiro", "mean": "Média", "std": "Desvio padrão",
+            "min": "Mínimo", "25%": "25%", "50%": "Mediana", "75%": "75%", "max": "Máximo"
+        }
+        
+        for original_col, new_col_name in rename_map.items():
+            if original_col in desc.columns:
+                desc_display[new_col_name] = desc[original_col]
+        
+        if "Primeiro" not in desc_display.columns:
+             desc_display["Primeiro"] = [df[col].iloc[0] if not df[col].empty and len(df[col]) > 0 else None for col in df.columns]
+        if "Último" not in desc_display.columns:
+            desc_display["Último"] = [df[col].iloc[-1] if not df[col].empty and len(df[col]) > 0 else None for col in df.columns]
+
+        cv_list = []
+        for col in df.columns:
+            if pd.api.types.is_numeric_dtype(df[col]) and df[col].mean() != 0 and not df[col].empty:
+                cv = (df[col].std() / df[col].mean()) * 100
+                cv_list.append(f"{cv:.2f}%")
+            else:
+                cv_list.append(None)
+        desc_display["Coeficiente de variação"] = cv_list
+        
+        desired_order = [
+            "Tipo da variável", "Contagem", "Contagem únicos", "Primeiro", "Último", 
+            "Média", "Desvio padrão", "Mínimo", "25%", "Mediana", "75%", "Máximo",
+            "Coeficiente de variação"
+        ]
+        final_columns_order = [col for col in desired_order if col in desc_display.columns]
+        st.dataframe(desc_display[final_columns_order])
 
         colunas_numericas = df.select_dtypes(include=["number"]).columns
         colunas_categoricas = df.select_dtypes(include=["object", "category"]).columns
 
         if len(colunas_numericas) > 0:
             st.write("**Gráficos para Colunas Numéricas:**")
-            col_num_selecionada = st.selectbox("Selecione uma coluna numérica para visualizar:", colunas_numericas)
+            col_num_key = f"col_num_select_{uploaded_file.id}"
+            col_num_selecionada = st.selectbox("Selecione uma coluna numérica para visualizar:", colunas_numericas, key=col_num_key)
             if col_num_selecionada:
                 fig_hist, ax_hist = plt.subplots()
                 sns.histplot(df[col_num_selecionada].dropna(), kde=True, ax=ax_hist)
@@ -180,14 +249,32 @@ if st.session_state.df is not None:
                 plt.close(fig_hist)
 
                 fig_box, ax_box = plt.subplots()
-                sns.boxplot(x=df[col_num_selecionada].dropna(), ax=ax_box)
+                boxplot_data = df[col_num_selecionada].dropna()
+                sns.boxplot(x=boxplot_data, ax=ax_box)
                 ax_box.set_title(f"Boxplot de {col_num_selecionada}")
+                
+                Q1 = boxplot_data.quantile(0.25)
+                Q3 = boxplot_data.quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - 1.5 * IQR
+                upper_bound = Q3 + 1.5 * IQR
+                outliers = boxplot_data[(boxplot_data < lower_bound) | (boxplot_data > upper_bound)]
+                
+                # Adicionar rótulos aos outliers no gráfico
+                if not outliers.empty:
+                    # st.write(f"Outliers identificados em {col_num_selecionada}: {", ".join(map(str, outliers.round(2)))}") # Opcional: listar outliers
+                    y_coord_for_text = 0 # Posição Y para os textos dos outliers (ajustar conforme necessário)
+                    for outlier_val in outliers:
+                        ax_box.text(outlier_val, y_coord_for_text, f"{outlier_val:.2f}", 
+                                    ha="center", va="bottom", fontsize=8, color="red", 
+                                    bbox=dict(boxstyle="round,pad=0.3", fc="yellow", alpha=0.5))
                 st.pyplot(fig_box)
                 plt.close(fig_box)
         
         if len(colunas_categoricas) > 0:
             st.write("**Gráficos para Colunas Categóricas:**")
-            col_cat_selecionada = st.selectbox("Selecione uma coluna categórica para visualizar (top 15 categorias):", colunas_categoricas)
+            col_cat_key = f"col_cat_select_{uploaded_file.id}"
+            col_cat_selecionada = st.selectbox("Selecione uma coluna categórica para visualizar (top 15 categorias):", colunas_categoricas, key=col_cat_key)
             if col_cat_selecionada:
                 fig_bar, ax_bar = plt.subplots()
                 counts = df[col_cat_selecionada].value_counts().nlargest(15)
@@ -197,12 +284,11 @@ if st.session_state.df is not None:
                 plt.xticks(rotation=45, ha="right")
                 st.pyplot(fig_bar)
                 plt.close(fig_bar)
-    # --- Fim da Funcionalidade de Análise Inicial ---
 
-    question = st.text_input("O que você quer saber ou fazer com os dados?")
+    question_key = f"question_input_{uploaded_file.id}"
+    question = st.text_input("O que você quer saber ou fazer com os dados?", key=question_key)
     
     if question:
-        # Revisão das f-strings nos exemplos few-shot para garantir uso correto de aspas e interpolação
         prompt = f"""
         Você é um analista de dados em Python. Recebeu o seguinte DataFrame (df):
         Primeiras linhas:
@@ -216,7 +302,7 @@ if st.session_state.df is not None:
         A aplicação será executada em Streamlit, portanto use st.write(...), st.dataframe(...), st.pyplot(), st.plotly_chart(), etc. para exibir todas as saídas.
         Assuma que o DataFrame principal se chama `df`.
         Gere apenas o código Python executável, com comentários dentro do código. Não inclua explicações escritas fora do código.
-        Gere o código apenas com bibliotecas já importadas (pandas as pd, matplotlib.pyplot as plt, streamlit as st, io, seaborn as sns).
+        Gere o código apenas com bibliotecas já importadas (pandas as pd, matplotlib.pyplot as plt, streamlit as st, io, seaborn as sns, numpy as np).
         Não use `exec()` ou `eval()` no código gerado.
         Não tente ler ou escrever arquivos no sistema.
         Após qualquer cálculo ou visualização, inclua uma breve interpretação em linguagem humana do resultado, usando st.write() ou st.markdown().
@@ -229,8 +315,6 @@ if st.session_state.df is not None:
             media_idade = df['idade'].mean()
             st.write(f"A média de idade é: {media_idade:.2f}")
             # Interpretação
-            # Usando aspas triplas para a string principal do markdown e f-string para interpolação.
-            # As quebras de linha dentro das aspas triplas são preservadas.
             st.markdown(f"A idade média dos indivíduos na base de dados é de {media_idade:.2f} anos. 
             Isso nos dá uma medida central da faixa etária predominante." )
         else:
@@ -249,8 +333,7 @@ if st.session_state.df is not None:
                 ax.set_xlabel("Valor da Compra")
                 ax.set_ylabel("Frequência")
                 st.pyplot(fig)
-                plt.close(fig) # Importante para liberar memória
-                # Interpretação
+                plt.close(fig) 
                 st.markdown(f"O histograma acima mostra a distribuição dos valores de compra. 
                 Podemos observar a frequência de compras em diferentes faixas de valor, 
                 ajudando a identificar os tickets mais comuns." )
@@ -266,7 +349,6 @@ if st.session_state.df is not None:
         # Mostra as 5 primeiras linhas do dataframe
         st.write("As 5 primeiras linhas do DataFrame são:")
         st.dataframe(df.head())
-        # Interpretação
         st.markdown("As primeiras cinco linhas do conjunto de dados foram exibidas para uma rápida visualização da estrutura e do conteúdo inicial.")
         ```
 
@@ -286,7 +368,7 @@ if st.session_state.df is not None:
         Se for usar `plt.subplots()`, sempre use `fig, ax = plt.subplots()`.
         Finalize a resposta.
         Sua resposta:
-        f""" 
+        f"""
         with st.spinner("Gerando código com IA..."):
             response = client.chat.completions.create(
                 model="gpt-4o", 
@@ -302,10 +384,12 @@ if st.session_state.df is not None:
         
         st.warning("⚠️ **Atenção:** O código abaixo foi gerado por uma IA e pode ser editado. A execução de código desconhecido ou modificado pode apresentar riscos de segurança e instabilidade. Execute por sua conta e risco.")
 
+        code_editor_key = f"code_editor_{uploaded_file.id}_{question[:20]}" # Key mais específica
         with st.expander("Edite o código se desejar (AVANÇADO):"):
-            code_editado = st.text_area("Edite o código Python aqui:", code, height=300, help="Modifique o código com cuidado. Apenas usuários avançados.")
+            code_editado = st.text_area("Edite o código Python aqui:", code, height=300, help="Modifique o código com cuidado. Apenas usuários avançados.", key=code_editor_key)
 
-        run_code = st.checkbox("Sim, entendo os riscos e desejo executar o código.")
+        run_code_key = f"run_code_checkbox_{uploaded_file.id}_{question[:20]}"
+        run_code = st.checkbox("Sim, entendo os riscos e desejo executar o código.", key=run_code_key)
         
         if run_code:
             if not code_editado.strip():
@@ -326,6 +410,7 @@ if st.session_state.df is not None:
                         "pd": pd,
                         "plt": plt,
                         "sns": sns, 
+                        "np": np, 
                         "st": st,
                         "df": df.copy(), 
                         "io": io,
@@ -350,6 +435,8 @@ else:
 
 st.markdown("---_---")
 st.markdown("Desenvolvido como um protótipo. Use com cautela.")
+
+
 
 
 
