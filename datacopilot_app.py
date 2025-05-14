@@ -220,18 +220,18 @@ if st.session_state.df is not None:
         Não tente ler ou escrever arquivos no sistema.
         Após qualquer cálculo ou visualização, inclua uma breve interpretação em linguagem humana do resultado, usando st.write() ou st.markdown().
 
-        Exemplo de Pergunta 1: "Qual a média da coluna \"idade\"?"
+        Exemplo de Pergunta 1: "Qual a média da coluna 'idade'?"
         Código de Resposta Esperado 1:
         ```python
-        # Calcula a média da coluna \"idade\"
-        if \"idade\" in df.columns:
-            media_idade = df[\"idade\"].mean()
-            st.write(f"A média de idade é: {{media_idade:.2f}}")
+        # Calcula a média da coluna 'idade'
+        if 'idade' in df.columns:
+            media_idade = df['idade'].mean()
+            st.write(f"A média de idade é: {media_idade:.2f}")
             # Interpretação
-            st.markdown(f"""A idade média dos indivíduos na base de dados é de {{media_idade:.2f}} anos. 
+            st.markdown(f"""A idade média dos indivíduos na base de dados é de {media_idade:.2f} anos. 
             Isso nos dá uma medida central da faixa etária predominante.""" )
         else:
-            st.warning("A coluna \"idade\" não foi encontrada no DataFrame.")
+            st.warning("A coluna 'idade' não foi encontrada no DataFrame.")
         ```
 
         Exemplo de Pergunta 2: "Crie um histograma da coluna \"valor_compra\". Use seaborn."
