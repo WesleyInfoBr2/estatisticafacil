@@ -40,7 +40,8 @@ if uploaded_file:
                 dialect = sniffer.sniff(sample_text)
                 st.session_state.df = pd.read_csv(uploaded_file, sep=dialect.delimiter, encoding="utf-8-sig", on_bad_lines="warn")
             except (csv.Error, UnicodeDecodeError) as e_sniff:
-                st.warning(f"Não foi possível detectar o separador/encoding automaticamente para CSV: {e_sniff}. Tentando com separadores comuns (";" e ",") e encoding utf-8.")
+                # Corrigido: Uso de aspas simples para os caracteres literais dentro da f-string
+                st.warning(f"Não foi possível detectar o separador/encoding automaticamente para CSV: {e_sniff}. Tentando com separadores comuns (';' e ',') e encoding utf-8.")
                 uploaded_file.seek(0)
                 try:
                     st.session_state.df = pd.read_csv(uploaded_file, sep=";", encoding="utf-8-sig", on_bad_lines="warn")
@@ -50,7 +51,8 @@ if uploaded_file:
         elif file_extension == "xlsx":
             st.session_state.df = pd.read_excel(uploaded_file, engine="openpyxl")
         elif file_extension == "txt": 
-            st.info("Para arquivos TXT, tentaremos inferir o delimitador (tab, ;, ou ,). Pode ser necessário ajustar manualmente se a leitura falhar.")
+            # Corrigido: Uso de aspas simples para os caracteres literais dentro da string informativa
+            st.info("Para arquivos TXT, tentaremos inferir o delimitador (tab, ';', ou ','). Pode ser necessário ajustar manualmente se a leitura falhar.")
             sniffer = csv.Sniffer()
             try:
                 sample_bytes = uploaded_file.read(2048)
@@ -59,7 +61,8 @@ if uploaded_file:
                 dialect = sniffer.sniff(sample_text)
                 st.session_state.df = pd.read_csv(uploaded_file, sep=dialect.delimiter, encoding="utf-8-sig", on_bad_lines="warn")
             except (csv.Error, UnicodeDecodeError) as e_sniff_txt:
-                st.warning(f"Não foi possível detectar o separador/encoding para TXT: {e_sniff_txt}. Tentando com tab, ; e ,.")
+                # Corrigido: Uso de aspas simples para os caracteres literais dentro da f-string
+                st.warning(f"Não foi possível detectar o separador/encoding para TXT: {e_sniff_txt}. Tentando com tab, ';' e ','.")
                 uploaded_file.seek(0)
                 try:
                     st.session_state.df = pd.read_csv(uploaded_file, sep="\t", encoding="utf-8-sig", on_bad_lines="warn")
@@ -228,20 +231,20 @@ if st.session_state.df is not None:
             media_idade = df['idade'].mean()
             st.write(f"A média de idade é: {media_idade:.2f}")
             # Interpretação
-            st.markdown(f"A idade média dos indivíduos na base de dados é de {media_idade:.2f} anos. 
-            Isso nos dá uma medida central da faixa etária predominante." )
+            st.markdown(f"""A idade média dos indivíduos na base de dados é de {media_idade:.2f} anos. 
+            Isso nos dá uma medida central da faixa etária predominante.""" )
         else:
             st.warning("A coluna 'idade' não foi encontrada no DataFrame.")
         ```
 
-        Exemplo de Pergunta 2: "Crie um histograma da coluna \"valor_compra\". Use seaborn."
+        Exemplo de Pergunta 2: "Crie um histograma da coluna 'valor_compra'. Use seaborn."
         Código de Resposta Esperado 2:
         ```python
-        # Cria um histograma para a coluna \"valor_compra\" usando seaborn
-        if \"valor_compra\" in df.columns:
-            if pd.api.types.is_numeric_dtype(df[\"valor_compra\"]):
+        # Cria um histograma para a coluna 'valor_compra' usando seaborn
+        if 'valor_compra' in df.columns:
+            if pd.api.types.is_numeric_dtype(df['valor_compra']):
                 fig, ax = plt.subplots()
-                sns.histplot(df[\"valor_compra\"].dropna(), kde=True, ax=ax)
+                sns.histplot(df['valor_compra'].dropna(), kde=True, ax=ax)
                 ax.set_title("Histograma de Valor da Compra")
                 ax.set_xlabel("Valor da Compra")
                 ax.set_ylabel("Frequência")
@@ -252,9 +255,9 @@ if st.session_state.df is not None:
                 Podemos observar a frequência de compras em diferentes faixas de valor, 
                 ajudando a identificar os tickets mais comuns.""" )
             else:
-                st.warning("A coluna \"valor_compra\" não é numérica e não pode ser usada para um histograma diretamente.")
+                st.warning("A coluna 'valor_compra' não é numérica e não pode ser usada para um histograma diretamente.")
         else:
-            st.warning("A coluna \"valor_compra\" não foi encontrada no DataFrame.")
+            st.warning("A coluna 'valor_compra' não foi encontrada no DataFrame.")
         ```
 
         Exemplo de Pergunta 3: "Mostre as 5 primeiras linhas do dataframe"
@@ -278,7 +281,7 @@ if st.session_state.df is not None:
         Lembre-se, o dataframe é `df`.
         Sua resposta deve ser apenas o bloco de código Python.
         Não inclua `import` statements no código gerado.
-        Se a pergunta for sobre estatísticas descritivas de uma coluna, use `df[\"nome_coluna\"].describe()` e apresente com `st.write()` ou `st.dataframe()`.
+        Se a pergunta for sobre estatísticas descritivas de uma coluna, use `df['nome_coluna'].describe()` e apresente com `st.write()` ou `st.dataframe()`.
         Para visualizações, prefira `matplotlib.pyplot` ou `seaborn` (importado como `sns`).
         Se for usar `plt.subplots()`, sempre use `fig, ax = plt.subplots()`.
         Finalize a resposta.
@@ -347,4 +350,6 @@ else:
 
 st.markdown("---_---")
 st.markdown("Desenvolvido como um protótipo. Use com cautela.")
+
+
 
