@@ -231,8 +231,8 @@ if st.session_state.df is not None:
             # Interpretação
             # Usando aspas triplas para a string principal do markdown e f-string para interpolação.
             # As quebras de linha dentro das aspas triplas são preservadas.
-            st.markdown(f"""A idade média dos indivíduos na base de dados é de {media_idade:.2f} anos. 
-            Isso nos dá uma medida central da faixa etária predominante.""" )
+            st.markdown(f"A idade média dos indivíduos na base de dados é de {media_idade:.2f} anos. 
+            Isso nos dá uma medida central da faixa etária predominante." )
         else:
             st.warning("A coluna 'idade' não foi encontrada no DataFrame.")
         ```
@@ -251,9 +251,9 @@ if st.session_state.df is not None:
                 st.pyplot(fig)
                 plt.close(fig) # Importante para liberar memória
                 # Interpretação
-                st.markdown(f"""O histograma acima mostra a distribuição dos valores de compra. 
+                st.markdown(f"O histograma acima mostra a distribuição dos valores de compra. 
                 Podemos observar a frequência de compras em diferentes faixas de valor, 
-                ajudando a identificar os tickets mais comuns.""" )
+                ajudando a identificar os tickets mais comuns." )
             else:
                 st.warning("A coluna 'valor_compra' não é numérica e não pode ser usada para um histograma diretamente.")
         else:
