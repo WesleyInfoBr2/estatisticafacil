@@ -47,7 +47,7 @@ if uploaded_file:
                 st.session_state.selected_sheet_name = "CSV_Data"
                 st.session_state.df = df_temp
             except (csv.Error, UnicodeDecodeError) as e_sniff:
-                st.warning(f"Não foi possível detectar o separador/encoding automaticamente para CSV: {e_sniff}. Tentando com separadores comuns (";" e ",") e encoding utf-8.")
+                st.warning(f"Não foi possível detectar o separador/encoding automaticamente para CSV: {e_sniff}. Tentando com separadores comuns (';' e ',') e encoding utf-8.")
                 uploaded_file.seek(0)
                 try:
                     df_temp = pd.read_csv(uploaded_file, sep=";", encoding="utf-8-sig", on_bad_lines="warn")
