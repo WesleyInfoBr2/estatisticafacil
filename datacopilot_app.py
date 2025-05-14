@@ -13,7 +13,7 @@ client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 st.title("EstatísticaFácil - Seu Analista de Dados com IA")
 
-st.markdown("Faça upload de um arquivo CSV, XLSX ou TXT e pergunte algo em linguagem natural. 
+st.markdown(f"Faça upload de um arquivo CSV, XLSX ou TXT e pergunte algo em linguagem natural. 
 A IA vai gerar o código Python, exibir, e você pode decidir se quer rodar." )
 
 # Inicializar st.session_state se não existir
