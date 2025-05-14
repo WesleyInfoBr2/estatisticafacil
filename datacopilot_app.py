@@ -13,7 +13,8 @@ client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 st.title("EstatísticaFácil - Seu Analista de Dados com IA")
 
-st.markdown("Faça upload de um arquivo CSV, XLSX ou TXT e pergunte algo em linguagem natural. A IA vai gerar o código Python, exibir, e você pode decidir se quer rodar.")
+st.markdown("""Faça upload de um arquivo CSV, XLSX ou TXT e pergunte algo em linguagem natural. 
+A IA vai gerar o código Python, exibir, e você pode decidir se quer rodar.""" )
 
 # Inicializar st.session_state se não existir
 if "df" not in st.session_state:
@@ -25,13 +26,36 @@ if "selected_sheet_name" not in st.session_state:
 if "show_initial_analysis" not in st.session_state:
     st.session_state.show_initial_analysis = False
 
-uploaded_file = st.file_uploader("Faça upload do arquivo (CSV, XLSX, TXT)", type=["csv", "xlsx", "txt"])
+# Usar um ID único para o file_uploader para ajudar a resetar o estado quando um novo arquivo é carregado
+# Isso é mais uma tentativa de garantir que o estado seja limpo.
+if "uploader_key" not in st.session_state:
+    st.session_state.uploader_key = 0
+
+uploaded_file = st.file_uploader("Faça upload do arquivo (CSV, XLSX, TXT)", 
+                                 type=["csv", "xlsx", "txt"], 
+                                 key=f"file_uploader_{st.session_state.uploader_key}")
 
 if uploaded_file:
-    st.session_state.df = None
-    st.session_state.dfs_dict = None
-    st.session_state.selected_sheet_name = None
-    st.session_state.show_initial_analysis = False
+    # Quando um novo arquivo é carregado, resetamos os estados relevantes
+    # e incrementamos a chave do uploader para forçar um re-render completo do widget se necessário.
+    if "last_uploaded_file_id" not in st.session_state or st.session_state.last_uploaded_file_id != uploaded_file.file_id:
+        st.session_state.df = None
+        st.session_state.dfs_dict = None
+        st.session_state.selected_sheet_name = None
+        st.session_state.show_initial_analysis = False
+        # Limpar chaves de widgets dinâmicos da sessão anterior
+        # Isso é uma abordagem mais explícita para limpar o estado de widgets antigos.
+        for key in list(st.session_state.keys()):
+            if key.startswith("sheet_selector_") or \ 
+               key.startswith("show_analysis_checkbox_") or \ 
+               key.startswith("col_num_select_") or \ 
+               key.startswith("col_cat_select_") or \ 
+               key.startswith("question_input_") or \ 
+               key.startswith("code_editor_") or \ 
+               key.startswith("run_code_checkbox_"):
+                del st.session_state[key]
+        st.session_state.uploader_key += 1
+    st.session_state.last_uploaded_file_id = uploaded_file.file_id
 
     file_extension = uploaded_file.name.split(".")[-1].lower()
     try:
@@ -47,7 +71,7 @@ if uploaded_file:
                 st.session_state.selected_sheet_name = "CSV_Data"
                 st.session_state.df = df_temp
             except (csv.Error, UnicodeDecodeError) as e_sniff:
-                st.warning(f"Não foi possível detectar o separador/encoding automaticamente para CSV: {e_sniff}. Tentando com separadores comuns (';' e ',') e encoding utf-8.")
+                st.warning(f"Não foi possível detectar o separador/encoding automaticamente para CSV: {e_sniff}. Tentando com separadores comuns (";" e ",") e encoding utf-8.")
                 uploaded_file.seek(0)
                 try:
                     df_temp = pd.read_csv(uploaded_file, sep=";", encoding="utf-8-sig", on_bad_lines="warn")
@@ -66,8 +90,7 @@ if uploaded_file:
                 st.session_state.selected_sheet_name = sheet_names[0]
                 st.session_state.df = st.session_state.dfs_dict[sheet_names[0]]
             elif len(sheet_names) > 1:
-                # Usar um novo key para o selectbox se ele já foi usado antes, para resetar
-                selectbox_key = f"sheet_selector_{uploaded_file.id}"
+                selectbox_key = f"sheet_selector_{uploaded_file.file_id}" # Corrigido para file_id
                 st.session_state.selected_sheet_name = st.selectbox("Selecione a planilha para análise:", sheet_names, key=selectbox_key)
                 if st.session_state.selected_sheet_name:
                     st.session_state.df = st.session_state.dfs_dict[st.session_state.selected_sheet_name]
@@ -76,7 +99,7 @@ if uploaded_file:
                 st.session_state.df = None
 
         elif file_extension == "txt":
-            st.info("Para arquivos TXT, tentaremos inferir o delimitador (tab, ';', ou ','). Pode ser necessário ajustar manualmente se a leitura falhar.")
+            st.info("Para arquivos TXT, tentaremos inferir o delimitador (tab, ";", ou ","). Pode ser necessário ajustar manualmente se a leitura falhar.")
             sniffer = csv.Sniffer()
             try:
                 sample_bytes = uploaded_file.read(2048)
@@ -85,7 +108,7 @@ if uploaded_file:
                 dialect = sniffer.sniff(sample_text)
                 df_temp = pd.read_csv(uploaded_file, sep=dialect.delimiter, encoding="utf-8-sig", on_bad_lines="warn")
             except (csv.Error, UnicodeDecodeError) as e_sniff_txt:
-                st.warning(f"Não foi possível detectar o separador/encoding para TXT: {e_sniff_txt}. Tentando com tab, ';' e ','.")
+                st.warning(f"Não foi possível detectar o separador/encoding para TXT: {e_sniff_txt}. Tentando com tab, ";" e ",".")
                 uploaded_file.seek(0)
                 try:
                     df_temp = pd.read_csv(uploaded_file, sep="\t", encoding="utf-8-sig", on_bad_lines="warn")
@@ -108,8 +131,10 @@ if uploaded_file:
         st.session_state.df = None
         st.session_state.dfs_dict = None
 
-if st.session_state.df is not None:
+if st.session_state.df is not None and uploaded_file is not None: # Adicionado check para uploaded_file
     df = st.session_state.df 
+    current_file_id = uploaded_file.file_id # Usar para chaves dinâmicas
+
     if st.session_state.selected_sheet_name and st.session_state.dfs_dict and len(st.session_state.dfs_dict) > 1 and file_extension == "xlsx":
         st.write(f"Analisando planilha: **{st.session_state.selected_sheet_name}**")
     
@@ -191,16 +216,20 @@ if st.session_state.df is not None:
     st.session_state.df = df_processed
     df = st.session_state.df
 
-    checkbox_key = f"show_analysis_checkbox_{uploaded_file.id}"
-    st.session_state.show_initial_analysis = st.checkbox("Mostrar Análise Inicial (Estatísticas e Gráficos Padrão)?", value=st.session_state.get(checkbox_key, False), key=checkbox_key)
+    checkbox_key = f"show_analysis_checkbox_{current_file_id}" # Corrigido para file_id
+    # Acessar o valor do checkbox de forma segura, com um default se a chave não existir
+    default_show_analysis = st.session_state.get(checkbox_key, False) 
+    st.session_state.show_initial_analysis = st.checkbox("Mostrar Análise Inicial (Estatísticas e Gráficos Padrão)?", 
+                                                       value=default_show_analysis, 
+                                                       key=checkbox_key)
 
     if st.session_state.show_initial_analysis:
         st.subheader("Análise Descritiva Inicial")
         st.write("Estatísticas Descritivas Gerais:")
         
         desc = df.describe(include="all").transpose()
-        desc_display = pd.DataFrame()
-        desc_display["Tipo da variável"] = df.dtypes.astype(str)
+        desc_display = pd.DataFrame(index=desc.index) # Manter o índice original (nomes das colunas)
+        desc_display["Tipo da variável"] = df.dtypes.astype(str).values # Garantir alinhamento
         
         rename_map = {
             "count": "Contagem", "unique": "Contagem únicos", "top": "Primeiro",
@@ -212,16 +241,20 @@ if st.session_state.df is not None:
             if original_col in desc.columns:
                 desc_display[new_col_name] = desc[original_col]
         
-        if "Primeiro" not in desc_display.columns:
-             desc_display["Primeiro"] = [df[col].iloc[0] if not df[col].empty and len(df[col]) > 0 else None for col in df.columns]
-        if "Último" not in desc_display.columns:
-            desc_display["Último"] = [df[col].iloc[-1] if not df[col].empty and len(df[col]) > 0 else None for col in df.columns]
+        # Para 'Primeiro' e 'Último', usar os valores reais do DataFrame se 'top' não for adequado
+        desc_display["Primeiro"] = [df[col].iloc[0] if not df[col].empty and len(df[col]) > 0 else None for col in df.columns]
+        desc_display["Último"] = [df[col].iloc[-1] if not df[col].empty and len(df[col]) > 0 else None for col in df.columns]
 
         cv_list = []
         for col in df.columns:
-            if pd.api.types.is_numeric_dtype(df[col]) and df[col].mean() != 0 and not df[col].empty:
-                cv = (df[col].std() / df[col].mean()) * 100
-                cv_list.append(f"{cv:.2f}%")
+            if pd.api.types.is_numeric_dtype(df[col]) and not df[col].empty:
+                mean_val = df[col].mean()
+                std_val = df[col].std()
+                if mean_val != 0 and pd.notna(mean_val) and pd.notna(std_val):
+                    cv = (std_val / mean_val) * 100
+                    cv_list.append(f"{cv:.2f}%")
+                else:
+                    cv_list.append(None)
             else:
                 cv_list.append(None)
         desc_display["Coeficiente de variação"] = cv_list
@@ -239,7 +272,7 @@ if st.session_state.df is not None:
 
         if len(colunas_numericas) > 0:
             st.write("**Gráficos para Colunas Numéricas:**")
-            col_num_key = f"col_num_select_{uploaded_file.id}"
+            col_num_key = f"col_num_select_{current_file_id}" # Corrigido para file_id
             col_num_selecionada = st.selectbox("Selecione uma coluna numérica para visualizar:", colunas_numericas, key=col_num_key)
             if col_num_selecionada:
                 fig_hist, ax_hist = plt.subplots()
@@ -250,30 +283,31 @@ if st.session_state.df is not None:
 
                 fig_box, ax_box = plt.subplots()
                 boxplot_data = df[col_num_selecionada].dropna()
-                sns.boxplot(x=boxplot_data, ax=ax_box)
-                ax_box.set_title(f"Boxplot de {col_num_selecionada}")
-                
-                Q1 = boxplot_data.quantile(0.25)
-                Q3 = boxplot_data.quantile(0.75)
-                IQR = Q3 - Q1
-                lower_bound = Q1 - 1.5 * IQR
-                upper_bound = Q3 + 1.5 * IQR
-                outliers = boxplot_data[(boxplot_data < lower_bound) | (boxplot_data > upper_bound)]
-                
-                # Adicionar rótulos aos outliers no gráfico
-                if not outliers.empty:
-                    # st.write(f"Outliers identificados em {col_num_selecionada}: {", ".join(map(str, outliers.round(2)))}") # Opcional: listar outliers
-                    y_coord_for_text = 0 # Posição Y para os textos dos outliers (ajustar conforme necessário)
-                    for outlier_val in outliers:
-                        ax_box.text(outlier_val, y_coord_for_text, f"{outlier_val:.2f}", 
-                                    ha="center", va="bottom", fontsize=8, color="red", 
-                                    bbox=dict(boxstyle="round,pad=0.3", fc="yellow", alpha=0.5))
-                st.pyplot(fig_box)
-                plt.close(fig_box)
+                if not boxplot_data.empty:
+                    sns.boxplot(x=boxplot_data, ax=ax_box)
+                    ax_box.set_title(f"Boxplot de {col_num_selecionada}")
+                    
+                    Q1 = boxplot_data.quantile(0.25)
+                    Q3 = boxplot_data.quantile(0.75)
+                    IQR = Q3 - Q1
+                    lower_bound = Q1 - 1.5 * IQR
+                    upper_bound = Q3 + 1.5 * IQR
+                    outliers = boxplot_data[(boxplot_data < lower_bound) | (boxplot_data > upper_bound)]
+                    
+                    if not outliers.empty:
+                        y_coord_for_text = 0 
+                        for outlier_val in outliers:
+                            ax_box.text(outlier_val, y_coord_for_text, f"{outlier_val:.2f}", 
+                                        ha="center", va="bottom", fontsize=8, color="red", 
+                                        bbox=dict(boxstyle="round,pad=0.3", fc="yellow", alpha=0.5))
+                    st.pyplot(fig_box)
+                    plt.close(fig_box)
+                else:
+                    st.write(f"A coluna {col_num_selecionada} não possui dados numéricos suficientes para gerar um boxplot.")
         
         if len(colunas_categoricas) > 0:
             st.write("**Gráficos para Colunas Categóricas:**")
-            col_cat_key = f"col_cat_select_{uploaded_file.id}"
+            col_cat_key = f"col_cat_select_{current_file_id}" # Corrigido para file_id
             col_cat_selecionada = st.selectbox("Selecione uma coluna categórica para visualizar (top 15 categorias):", colunas_categoricas, key=col_cat_key)
             if col_cat_selecionada:
                 fig_bar, ax_bar = plt.subplots()
@@ -285,7 +319,7 @@ if st.session_state.df is not None:
                 st.pyplot(fig_bar)
                 plt.close(fig_bar)
 
-    question_key = f"question_input_{uploaded_file.id}"
+    question_key = f"question_input_{current_file_id}" # Corrigido para file_id
     question = st.text_input("O que você quer saber ou fazer com os dados?", key=question_key)
     
     if question:
@@ -315,8 +349,8 @@ if st.session_state.df is not None:
             media_idade = df['idade'].mean()
             st.write(f"A média de idade é: {media_idade:.2f}")
             # Interpretação
-            st.markdown(f"A idade média dos indivíduos na base de dados é de {media_idade:.2f} anos. 
-            Isso nos dá uma medida central da faixa etária predominante." )
+            st.markdown(f"""A idade média dos indivíduos na base de dados é de {media_idade:.2f} anos. 
+            Isso nos dá uma medida central da faixa etária predominante.""" )
         else:
             st.warning("A coluna 'idade' não foi encontrada no DataFrame.")
         ```
@@ -334,9 +368,9 @@ if st.session_state.df is not None:
                 ax.set_ylabel("Frequência")
                 st.pyplot(fig)
                 plt.close(fig) 
-                st.markdown(f"O histograma acima mostra a distribuição dos valores de compra. 
+                st.markdown(f"""O histograma acima mostra a distribuição dos valores de compra. 
                 Podemos observar a frequência de compras em diferentes faixas de valor, 
-                ajudando a identificar os tickets mais comuns." )
+                ajudando a identificar os tickets mais comuns.""" )
             else:
                 st.warning("A coluna 'valor_compra' não é numérica e não pode ser usada para um histograma diretamente.")
         else:
@@ -384,11 +418,11 @@ if st.session_state.df is not None:
         
         st.warning("⚠️ **Atenção:** O código abaixo foi gerado por uma IA e pode ser editado. A execução de código desconhecido ou modificado pode apresentar riscos de segurança e instabilidade. Execute por sua conta e risco.")
 
-        code_editor_key = f"code_editor_{uploaded_file.id}_{question[:20]}" # Key mais específica
+        code_editor_key = f"code_editor_{current_file_id}_{question[:20].replace(' ','_')}" # Corrigido e mais específico
         with st.expander("Edite o código se desejar (AVANÇADO):"):
             code_editado = st.text_area("Edite o código Python aqui:", code, height=300, help="Modifique o código com cuidado. Apenas usuários avançados.", key=code_editor_key)
 
-        run_code_key = f"run_code_checkbox_{uploaded_file.id}_{question[:20]}"
+        run_code_key = f"run_code_checkbox_{current_file_id}_{question[:20].replace(' ','_')}" # Corrigido e mais específico
         run_code = st.checkbox("Sim, entendo os riscos e desejo executar o código.", key=run_code_key)
         
         if run_code:
@@ -435,10 +469,6 @@ else:
 
 st.markdown("---_---")
 st.markdown("Desenvolvido como um protótipo. Use com cautela.")
-
-
-
-
 
 
 
