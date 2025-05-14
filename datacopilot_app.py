@@ -98,7 +98,7 @@ if uploaded_file:
                 st.session_state.df = None
 
         elif file_extension == "txt":
-            st.info("Para arquivos TXT, tentaremos inferir o delimitador (tab, ";", ou ","). Pode ser necessário ajustar manualmente se a leitura falhar.")
+            st.info("Para arquivos TXT, tentaremos inferir o delimitador (tab, ';', ou ','). Pode ser necessário ajustar manualmente se a leitura falhar.")
             sniffer = csv.Sniffer()
             try:
                 sample_bytes = uploaded_file.read(2048)
