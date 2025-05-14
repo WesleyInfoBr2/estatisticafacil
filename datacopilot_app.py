@@ -76,7 +76,7 @@ if uploaded_file:
                 st.session_state.df = None
 
         elif file_extension == "txt":
-            st.info("Para arquivos TXT, tentaremos inferir o delimitador (tab, ";", ou ","). Pode ser necessário ajustar manualmente se a leitura falhar.")
+            st.info("Para arquivos TXT, tentaremos inferir o delimitador (tab, ';', ou ','). Pode ser necessário ajustar manualmente se a leitura falhar.")
             sniffer = csv.Sniffer()
             try:
                 sample_bytes = uploaded_file.read(2048)
@@ -85,7 +85,7 @@ if uploaded_file:
                 dialect = sniffer.sniff(sample_text)
                 df_temp = pd.read_csv(uploaded_file, sep=dialect.delimiter, encoding="utf-8-sig", on_bad_lines="warn")
             except (csv.Error, UnicodeDecodeError) as e_sniff_txt:
-                st.warning(f"Não foi possível detectar o separador/encoding para TXT: {e_sniff_txt}. Tentando com tab, ";" e ",".")
+                st.warning(f"Não foi possível detectar o separador/encoding para TXT: {e_sniff_txt}. Tentando com tab, ';' e ','.")
                 uploaded_file.seek(0)
                 try:
                     df_temp = pd.read_csv(uploaded_file, sep="\t", encoding="utf-8-sig", on_bad_lines="warn")
