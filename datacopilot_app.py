@@ -228,8 +228,8 @@ if st.session_state.df is not None:
             media_idade = df['idade'].mean()
             st.write(f"A média de idade é: {media_idade:.2f}")
             # Interpretação
-            st.markdown(f"""A idade média dos indivíduos na base de dados é de {media_idade:.2f} anos. 
-            Isso nos dá uma medida central da faixa etária predominante.""" )
+            st.markdown(f"A idade média dos indivíduos na base de dados é de {media_idade:.2f} anos. 
+            Isso nos dá uma medida central da faixa etária predominante." )
         else:
             st.warning("A coluna 'idade' não foi encontrada no DataFrame.")
         ```
