@@ -124,7 +124,8 @@ def analisar_sentimento(texto):
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 st.title("EstatísticaFácil - Seu Analista de Dados com IA")
-st.markdown("Faça upload de um arquivo CSV, XLSX ou TXT e pergunte algo em linguagem natural. A IA vai gerar o código Python, exibir, e você pode decidir se quer rodar." )
+st.markdown("""Faça upload de um arquivo CSV, XLSX ou TXT e pergunte algo em linguagem natural. 
+A IA vai gerar o código Python, exibir, e você pode decidir se quer rodar.""" )
 
 # Inicializar st.session_state se não existir
 if "df" not in st.session_state: st.session_state.df = None
