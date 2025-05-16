@@ -120,9 +120,383 @@ def analisar_sentimento(texto):
         logging.error(f"Erro ao analisar sentimento: {str(e)}")
         return "Erro na análise"
 
-# Configure sua API Key via secrets.toml ou diretamente aqui
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+# Função para gerar código Python com tratamento de erros de API
+def gerar_codigo_python(df, question, is_text_analysis=False):
+    """
+    Gera código Python para responder à pergunta do usuário, com tratamento de erros de API.
+    
+    Parâmetros:
+    df: DataFrame pandas
+    question: Pergunta do usuário
+    is_text_analysis: Se a pergunta é sobre análise de texto
+    
+    Retorna:
+    str: Código Python gerado ou código de fallback em caso de erro
+    """
+    try:
+        # Escolher os exemplos apropriados com base no tipo de pergunta
+        quantitative_examples = """
+        Pergunta: "Qual a média de vendas?"
+        Resposta:
+        ```python
+        # Verificar se a coluna existe
+        if 'Vendas' in df.columns:
+            media_vendas = df['Vendas'].mean()
+            st.markdown(f"A média de vendas é {media_vendas:.2f}.")
+        else:
+            st.error("Coluna 'Vendas' não encontrada no DataFrame.")
+            colunas_numericas = df.select_dtypes(include=np.number).columns.tolist()
+            if colunas_numericas:
+                st.write(f"Colunas numéricas disponíveis: {', '.join(colunas_numericas)}")
+        ```
+        
+        Pergunta: "Mostre a distribuição de vendas por região"
+        Resposta:
+        ```python
+        # Verificar se as colunas existem
+        if 'Região' in df.columns and 'Valor_Venda' in df.columns:
+            # Agrupar vendas por região
+            vendas_por_regiao = df.groupby('Região')['Valor_Venda'].sum().reset_index()
+            
+            # Criar gráfico de barras
+            fig, ax = plt.subplots(figsize=(10, 6))
+            sns.barplot(x='Região', y='Valor_Venda', data=vendas_por_regiao, ax=ax)
+            ax.set_title('Distribuição de Vendas por Região')
+            ax.set_ylabel('Valor Total de Vendas')
+            st.pyplot(fig)
+            plt.close(fig)
+        else:
+            colunas_faltantes = []
+            if 'Região' not in df.columns: colunas_faltantes.append('Região')
+            if 'Valor_Venda' not in df.columns: colunas_faltantes.append('Valor_Venda')
+            st.error(f"Colunas necessárias não encontradas: {', '.join(colunas_faltantes)}")
+            st.write(f"Colunas disponíveis: {', '.join(df.columns.tolist())}")
+        ```
+        
+        Pergunta: "Quais são os 5 produtos mais vendidos?"
+        Resposta:
+        ```python
+        # Verificar se a coluna existe
+        if 'Produto' in df.columns:
+            # Contar ocorrências de cada produto
+            produtos_mais_vendidos = df['Produto'].value_counts().reset_index().head(5)
+            produtos_mais_vendidos.columns = ['Produto', 'Quantidade']
+            
+            # Exibir tabela
+            st.write("Os 5 produtos mais vendidos são:")
+            st.dataframe(produtos_mais_vendidos)
+            
+            # Criar gráfico
+            fig, ax = plt.subplots(figsize=(10, 6))
+            sns.barplot(x='Quantidade', y='Produto', data=produtos_mais_vendidos, ax=ax)
+            ax.set_title('5 Produtos Mais Vendidos')
+            st.pyplot(fig)
+            plt.close(fig)
+        else:
+            st.error("Coluna 'Produto' não encontrada no DataFrame.")
+            colunas_categoricas = df.select_dtypes(include=['object', 'category']).columns.tolist()
+            if colunas_categoricas:
+                st.write(f"Colunas categóricas disponíveis: {', '.join(colunas_categoricas)}")
+        ```
+        """
+        
+        text_analysis_examples = """
+        Pergunta: "Analise os comentários e identifique os principais temas"
+        Resposta:
+        ```python
+        # Verificar se existe uma coluna de comentários
+        colunas_texto = df.select_dtypes(include=['object']).columns
+        if len(colunas_texto) == 0:
+            st.error("Não foram encontradas colunas de texto no DataFrame.")
+        else:
+            # Usar a primeira coluna de texto como coluna de comentários
+            coluna_comentarios = colunas_texto[0]
+            st.write(f"Analisando a coluna: {coluna_comentarios}")
+            
+            # Criar coluna de temas usando a função identificar_temas
+            df_temp = df.copy()
+            df_temp['Temas'] = df_temp[coluna_comentarios].apply(lambda x: identificar_temas(x, num_temas=3))
+            
+            # Contar frequência de cada tema
+            todos_temas = [tema for lista_temas in df_temp['Temas'] for tema in lista_temas]
+            contador_temas = Counter(todos_temas)
+            temas_comuns = contador_temas.most_common(10)
+            
+            # Criar DataFrame para visualização
+            df_temas = pd.DataFrame(temas_comuns, columns=['Tema', 'Frequência'])
+            
+            # Mostrar resultados
+            st.write("### Principais temas identificados nos comentários:")
+            st.dataframe(df_temas)
+            
+            # Criar gráfico de barras
+            fig, ax = plt.subplots(figsize=(10, 6))
+            sns.barplot(x='Frequência', y='Tema', data=df_temas, ax=ax)
+            ax.set_title('Temas mais frequentes nos comentários')
+            st.pyplot(fig)
+            plt.close(fig)
+        ```
+        
+        Pergunta: "Qual o sentimento dos comentários?"
+        Resposta:
+        ```python
+        # Verificar se existe uma coluna de comentários
+        colunas_texto = df.select_dtypes(include=['object']).columns
+        if len(colunas_texto) == 0:
+            st.error("Não foram encontradas colunas de texto no DataFrame.")
+        else:
+            # Usar a primeira coluna de texto como coluna de comentários
+            coluna_comentarios = colunas_texto[0]
+            st.write(f"Analisando o sentimento da coluna: {coluna_comentarios}")
+            
+            # Criar coluna de sentimento usando a função analisar_sentimento
+            df_temp = df.copy()
+            df_temp['Sentimento'] = df_temp[coluna_comentarios].apply(analisar_sentimento)
+            
+            # Contar frequência de cada categoria de sentimento
+            contagem_sentimentos = df_temp['Sentimento'].value_counts().reset_index()
+            contagem_sentimentos.columns = ['Sentimento', 'Contagem']
+            
+            # Mostrar resultados
+            st.write("### Análise de sentimento dos comentários:")
+            st.dataframe(contagem_sentimentos)
+            
+            # Criar gráfico de pizza
+            fig, ax = plt.subplots(figsize=(10, 6))
+            ax.pie(contagem_sentimentos['Contagem'], labels=contagem_sentimentos['Sentimento'], 
+                   autopct='%1.1f%%', startangle=90)
+            ax.axis('equal')
+            ax.set_title('Distribuição de sentimentos nos comentários')
+            st.pyplot(fig)
+            plt.close(fig)
+        ```
+        
+        Pergunta: "Identifique os temas e sentimentos nos comentários"
+        Resposta:
+        ```python
+        # Verificar se existe uma coluna de comentários
+        colunas_texto = df.select_dtypes(include=['object']).columns
+        if len(colunas_texto) == 0:
+            st.error("Não foram encontradas colunas de texto no DataFrame.")
+        else:
+            # Usar a primeira coluna de texto como coluna de comentários
+            coluna_comentarios = colunas_texto[0]
+            st.write(f"Analisando a coluna: {coluna_comentarios}")
+            
+            # Criar colunas de temas e sentimento
+            df_temp = df.copy()
+            df_temp['Temas'] = df_temp[coluna_comentarios].apply(lambda x: identificar_temas(x, num_temas=3))
+            df_temp['Sentimento'] = df_temp[coluna_comentarios].apply(analisar_sentimento)
+            
+            # Contar frequência de cada tema
+            todos_temas = [tema for lista_temas in df_temp['Temas'] for tema in lista_temas]
+            contador_temas = Counter(todos_temas)
+            temas_comuns = contador_temas.most_common(10)
+            
+            # Criar DataFrame para visualização de temas
+            df_temas = pd.DataFrame(temas_comuns, columns=['Tema', 'Frequência'])
+            
+            # Contar frequência de cada categoria de sentimento
+            contagem_sentimentos = df_temp['Sentimento'].value_counts().reset_index()
+            contagem_sentimentos.columns = ['Sentimento', 'Contagem']
+            
+            # Mostrar resultados de temas
+            st.write("### Principais temas identificados nos comentários:")
+            st.dataframe(df_temas)
+            
+            # Criar gráfico de barras para temas
+            fig1, ax1 = plt.subplots(figsize=(10, 6))
+            sns.barplot(x='Frequência', y='Tema', data=df_temas, ax=ax1)
+            ax1.set_title('Temas mais frequentes nos comentários')
+            st.pyplot(fig1)
+            plt.close(fig1)
+            
+            # Mostrar resultados de sentimento
+            st.write("### Análise de sentimento dos comentários:")
+            st.dataframe(contagem_sentimentos)
+            
+            # Criar gráfico de pizza para sentimentos
+            fig2, ax2 = plt.subplots(figsize=(10, 6))
+            ax2.pie(contagem_sentimentos['Contagem'], labels=contagem_sentimentos['Sentimento'], 
+                   autopct='%1.1f%%', startangle=90)
+            ax2.axis('equal')
+            ax2.set_title('Distribuição de sentimentos nos comentários')
+            st.pyplot(fig2)
+            plt.close(fig2)
+            
+            # Análise cruzada de temas por sentimento
+            st.write("### Análise cruzada: Temas mais comuns por sentimento")
+            
+            # Criar um dicionário para armazenar temas por sentimento
+            temas_por_sentimento = {}
+            for sentimento in df_temp['Sentimento'].unique():
+                # Filtrar comentários por sentimento
+                df_sentimento = df_temp[df_temp['Sentimento'] == sentimento]
+                # Extrair temas deste sentimento
+                temas_sentimento = [tema for lista_temas in df_sentimento['Temas'] for tema in lista_temas]
+                # Contar frequência
+                contador = Counter(temas_sentimento)
+                # Armazenar os 5 mais comuns
+                temas_por_sentimento[sentimento] = contador.most_common(5)
+            
+            # Exibir temas por sentimento
+            for sentimento, temas in temas_por_sentimento.items():
+                if temas:  # Verificar se há temas para este sentimento
+                    st.write(f"**Temas mais comuns em comentários {sentimento}:**")
+                    df_temas_sentimento = pd.DataFrame(temas, columns=['Tema', 'Frequência'])
+                    st.dataframe(df_temas_sentimento)
+        ```
+        """
+        
+        examples_to_use = text_analysis_examples if is_text_analysis else quantitative_examples
+        
+        prompt = f"""
+        Você é um assistente especializado em análise de dados com Python. Gere código Python para responder à pergunta do usuário sobre um DataFrame pandas.
+        
+        Informações sobre o DataFrame:
+        - Nome da variável: df
+        - Colunas: {', '.join(df.columns.tolist())}
+        - Tipos de dados: {dict(df.dtypes.astype(str))}
+        - Primeiras linhas: {df.head(3).to_dict()}
+        
+        Pergunta do usuário: {question}
+        
+        Gere apenas o código Python necessário para responder à pergunta. Use pandas, matplotlib, seaborn e numpy conforme necessário.
+        Inclua visualizações quando apropriado. Use st.write() ou st.markdown() para exibir resultados textuais e st.pyplot() para gráficos.
+        Não inclua explicações, apenas o código Python.
+        
+        Exemplos de perguntas e respostas esperadas:
+        {examples_to_use}
+        """
+        
+        # Verificar se a chave da API está configurada
+        if "OPENAI_API_KEY" not in st.secrets:
+            logging.error("Chave da API OpenAI não configurada em st.secrets")
+            raise ValueError("Chave da API OpenAI não configurada")
+        
+        # Inicializar cliente OpenAI
+        client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+        
+        # Fazer a chamada à API
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "system", "content": "Você é um assistente especializado em análise de dados com Python."},
+                      {"role": "user", "content": prompt}],
+            temperature=0.2,
+            max_tokens=1000
+        )
+        
+        code = response.choices[0].message.content.strip()
+        if "```python" in code and "```" in code:
+            code = code.split("```python")[1].split("```")[0].strip()
+        elif "```" in code:
+            code = code.split("```")[1].split("```")[0].strip()
+        
+        return code
+    
+    except Exception as e:
+        # Registrar o erro
+        error_details = traceback.format_exc()
+        logging.error(f"Erro ao gerar código com a API OpenAI: {str(e)}\nDetalhes:\n{error_details}")
+        
+        # Gerar código de fallback baseado no tipo de análise
+        if is_text_analysis:
+            return gerar_codigo_fallback_texto(df)
+        else:
+            return gerar_codigo_fallback_numerico(df)
 
+# Código de fallback para análise de texto quando a API falha
+def gerar_codigo_fallback_texto(df):
+    """Gera código de fallback para análise de texto quando a API OpenAI falha"""
+    colunas_texto = df.select_dtypes(include=['object']).columns
+    if len(colunas_texto) == 0:
+        return """
+        st.error("Não foram encontradas colunas de texto no DataFrame.")
+        st.write("Colunas disponíveis:", df.columns.tolist())
+        """
+    else:
+        coluna_texto = colunas_texto[0]
+        return f"""
+        # Análise de texto para a coluna: {coluna_texto}
+        st.write("Analisando a coluna de texto: {coluna_texto}")
+        
+        # Criar coluna de temas
+        df_temp = df.copy()
+        df_temp['Temas'] = df_temp['{coluna_texto}'].apply(lambda x: identificar_temas(x, num_temas=3))
+        df_temp['Sentimento'] = df_temp['{coluna_texto}'].apply(analisar_sentimento)
+        
+        # Contar frequência de cada tema
+        todos_temas = [tema for lista_temas in df_temp['Temas'] for tema in lista_temas]
+        contador_temas = Counter(todos_temas)
+        temas_comuns = contador_temas.most_common(10)
+        
+        # Criar DataFrame para visualização
+        df_temas = pd.DataFrame(temas_comuns, columns=['Tema', 'Frequência'])
+        
+        # Mostrar resultados
+        st.write("### Principais temas identificados:")
+        st.dataframe(df_temas)
+        
+        # Criar gráfico de barras
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.barplot(x='Frequência', y='Tema', data=df_temas, ax=ax)
+        ax.set_title('Temas mais frequentes')
+        st.pyplot(fig)
+        plt.close(fig)
+        
+        # Análise de sentimento
+        contagem_sentimentos = df_temp['Sentimento'].value_counts().reset_index()
+        contagem_sentimentos.columns = ['Sentimento', 'Contagem']
+        
+        st.write("### Análise de sentimento:")
+        st.dataframe(contagem_sentimentos)
+        
+        # Gráfico de sentimento
+        fig2, ax2 = plt.subplots(figsize=(10, 6))
+        ax2.pie(contagem_sentimentos['Contagem'], labels=contagem_sentimentos['Sentimento'], 
+               autopct='%1.1f%%', startangle=90)
+        ax2.axis('equal')
+        ax2.set_title('Distribuição de sentimentos')
+        st.pyplot(fig2)
+        plt.close(fig2)
+        """
+
+# Código de fallback para análise numérica quando a API falha
+def gerar_codigo_fallback_numerico(df):
+    """Gera código de fallback para análise numérica quando a API OpenAI falha"""
+    colunas_numericas = df.select_dtypes(include=np.number).columns
+    if len(colunas_numericas) == 0:
+        return """
+        st.error("Não foram encontradas colunas numéricas no DataFrame.")
+        st.write("Colunas disponíveis:", df.columns.tolist())
+        """
+    else:
+        coluna_numerica = colunas_numericas[0]
+        return f"""
+        # Análise estatística básica para a coluna: {coluna_numerica}
+        st.write("Analisando a coluna numérica: {coluna_numerica}")
+        
+        # Estatísticas descritivas
+        stats = df['{coluna_numerica}'].describe()
+        st.write("### Estatísticas descritivas:")
+        st.dataframe(stats)
+        
+        # Histograma
+        fig1, ax1 = plt.subplots(figsize=(10, 6))
+        sns.histplot(df['{coluna_numerica}'].dropna(), kde=True, ax=ax1)
+        ax1.set_title(f'Distribuição de {coluna_numerica}')
+        st.pyplot(fig1)
+        plt.close(fig1)
+        
+        # Boxplot
+        fig2, ax2 = plt.subplots(figsize=(10, 6))
+        sns.boxplot(x=df['{coluna_numerica}'].dropna(), ax=ax2)
+        ax2.set_title(f'Boxplot de {coluna_numerica}')
+        st.pyplot(fig2)
+        plt.close(fig2)
+        """
+
+# Título e descrição da aplicação
 st.title("EstatísticaFácil - Seu Analista de Dados com IA")
 st.markdown("""Faça upload de um arquivo CSV, XLSX ou TXT e pergunte algo em linguagem natural. 
 A IA vai gerar o código Python, exibir, e você pode decidir se quer rodar.""" )
@@ -391,351 +765,230 @@ if uploaded_file is not None:
             
             is_text_analysis = any(keyword in question.lower() for keyword in text_analysis_keywords)
             
-            # Exemplos específicos baseados no tipo de análise solicitada
-            quantitative_examples = """
-            Pergunta: "Qual a média de vendas?"
-            Resposta:
-            ```python
-            # Verificar se a coluna existe
-            if 'Vendas' in df.columns:
-                media_vendas = df['Vendas'].mean()
-                st.markdown(f"A média de vendas é {media_vendas:.2f}.")
-            else:
-                st.error("Coluna 'Vendas' não encontrada no DataFrame.")
-                colunas_numericas = df.select_dtypes(include=np.number).columns.tolist()
-                if colunas_numericas:
-                    st.write(f"Colunas numéricas disponíveis: {', '.join(colunas_numericas)}")
-            ```
-            
-            Pergunta: "Mostre a distribuição de vendas por região"
-            Resposta:
-            ```python
-            # Verificar se as colunas existem
-            if 'Região' in df.columns and 'Valor_Venda' in df.columns:
-                # Agrupar vendas por região
-                vendas_por_regiao = df.groupby('Região')['Valor_Venda'].sum().reset_index()
+            # Gerar código com tratamento de erros de API
+            try:
+                code = gerar_codigo_python(df, question, is_text_analysis)
                 
-                # Criar gráfico de barras
-                fig, ax = plt.subplots(figsize=(10, 6))
-                sns.barplot(x='Região', y='Valor_Venda', data=vendas_por_regiao, ax=ax)
-                ax.set_title('Distribuição de Vendas por Região')
-                ax.set_ylabel('Valor Total de Vendas')
-                st.pyplot(fig)
-                plt.close(fig)
-            else:
-                colunas_faltantes = []
-                if 'Região' not in df.columns: colunas_faltantes.append('Região')
-                if 'Valor_Venda' not in df.columns: colunas_faltantes.append('Valor_Venda')
-                st.error(f"Colunas necessárias não encontradas: {', '.join(colunas_faltantes)}")
-                st.write(f"Colunas disponíveis: {', '.join(df.columns.tolist())}")
-            ```
-            
-            Pergunta: "Quais são os 5 produtos mais vendidos?"
-            Resposta:
-            ```python
-            # Verificar se a coluna existe
-            if 'Produto' in df.columns:
-                # Contar ocorrências de cada produto
-                produtos_mais_vendidos = df['Produto'].value_counts().reset_index().head(5)
-                produtos_mais_vendidos.columns = ['Produto', 'Quantidade']
+                st.subheader("Código gerado pela IA:")
+                code_editor_key = f"code_editor_{current_widget_prefix}_{question[:15].replace(' ','_')}"
+                code_editado = st.text_area("Edite o código se desejar (AVANÇADO):", value=code, height=300, key=code_editor_key)
                 
-                # Exibir tabela
-                st.write("Os 5 produtos mais vendidos são:")
-                st.dataframe(produtos_mais_vendidos)
+                st.warning("⚠️ ATENÇÃO: Executar código gerado por IA pode ser arriscado. Revise o código antes de executar. Não execute código que você não entenda ou não confie.")
                 
-                # Criar gráfico
-                fig, ax = plt.subplots(figsize=(10, 6))
-                sns.barplot(x='Quantidade', y='Produto', data=produtos_mais_vendidos, ax=ax)
-                ax.set_title('5 Produtos Mais Vendidos')
-                st.pyplot(fig)
-                plt.close(fig)
-            else:
-                st.error("Coluna 'Produto' não encontrada no DataFrame.")
-                colunas_categoricas = df.select_dtypes(include=['object', 'category']).columns.tolist()
-                if colunas_categoricas:
-                    st.write(f"Colunas categóricas disponíveis: {', '.join(colunas_categoricas)}")
-            ```
-            """
-            
-            text_analysis_examples = """
-            Pergunta: "Analise os comentários e identifique os principais temas"
-            Resposta:
-            ```python
-            # Verificar se existe uma coluna de comentários
-            colunas_texto = df.select_dtypes(include=['object']).columns
-            if len(colunas_texto) == 0:
-                st.error("Não foram encontradas colunas de texto no DataFrame.")
-            else:
-                # Usar a primeira coluna de texto como coluna de comentários
-                coluna_comentarios = colunas_texto[0]
-                st.write(f"Analisando a coluna: {coluna_comentarios}")
+                run_code_key_check = f"run_code_checkbox_{current_widget_prefix}_{question[:15].replace(' ','_')}"
+                run_code = st.checkbox("Sim, entendo os riscos e desejo executar o código.", key=run_code_key_check)
                 
-                # Criar coluna de temas usando a função identificar_temas
-                df_temp = df.copy()
-                df_temp['Temas'] = df_temp[coluna_comentarios].apply(lambda x: identificar_temas(x, num_temas=3))
-                
-                # Contar frequência de cada tema
-                todos_temas = [tema for lista_temas in df_temp['Temas'] for tema in lista_temas]
-                contador_temas = Counter(todos_temas)
-                temas_comuns = contador_temas.most_common(10)
-                
-                # Criar DataFrame para visualização
-                df_temas = pd.DataFrame(temas_comuns, columns=['Tema', 'Frequência'])
-                
-                # Mostrar resultados
-                st.write("### Principais temas identificados nos comentários:")
-                st.dataframe(df_temas)
-                
-                # Criar gráfico de barras
-                fig, ax = plt.subplots(figsize=(10, 6))
-                sns.barplot(x='Frequência', y='Tema', data=df_temas, ax=ax)
-                ax.set_title('Temas mais frequentes nos comentários')
-                st.pyplot(fig)
-                plt.close(fig)
-            ```
-            
-            Pergunta: "Qual o sentimento dos comentários?"
-            Resposta:
-            ```python
-            # Verificar se existe uma coluna de comentários
-            colunas_texto = df.select_dtypes(include=['object']).columns
-            if len(colunas_texto) == 0:
-                st.error("Não foram encontradas colunas de texto no DataFrame.")
-            else:
-                # Usar a primeira coluna de texto como coluna de comentários
-                coluna_comentarios = colunas_texto[0]
-                st.write(f"Analisando o sentimento da coluna: {coluna_comentarios}")
-                
-                # Criar coluna de sentimento usando a função analisar_sentimento
-                df_temp = df.copy()
-                df_temp['Sentimento'] = df_temp[coluna_comentarios].apply(analisar_sentimento)
-                
-                # Contar frequência de cada categoria de sentimento
-                contagem_sentimentos = df_temp['Sentimento'].value_counts().reset_index()
-                contagem_sentimentos.columns = ['Sentimento', 'Contagem']
-                
-                # Mostrar resultados
-                st.write("### Análise de sentimento dos comentários:")
-                st.dataframe(contagem_sentimentos)
-                
-                # Criar gráfico de pizza
-                fig, ax = plt.subplots(figsize=(10, 6))
-                ax.pie(contagem_sentimentos['Contagem'], labels=contagem_sentimentos['Sentimento'], 
-                       autopct='%1.1f%%', startangle=90)
-                ax.axis('equal')
-                ax.set_title('Distribuição de sentimentos nos comentários')
-                st.pyplot(fig)
-                plt.close(fig)
-            ```
-            
-            Pergunta: "Identifique os temas e sentimentos nos comentários"
-            Resposta:
-            ```python
-            # Verificar se existe uma coluna de comentários
-            colunas_texto = df.select_dtypes(include=['object']).columns
-            if len(colunas_texto) == 0:
-                st.error("Não foram encontradas colunas de texto no DataFrame.")
-            else:
-                # Usar a primeira coluna de texto como coluna de comentários
-                coluna_comentarios = colunas_texto[0]
-                st.write(f"Analisando a coluna: {coluna_comentarios}")
-                
-                # Criar colunas de temas e sentimento
-                df_temp = df.copy()
-                df_temp['Temas'] = df_temp[coluna_comentarios].apply(lambda x: identificar_temas(x, num_temas=3))
-                df_temp['Sentimento'] = df_temp[coluna_comentarios].apply(analisar_sentimento)
-                
-                # Contar frequência de cada tema
-                todos_temas = [tema for lista_temas in df_temp['Temas'] for tema in lista_temas]
-                contador_temas = Counter(todos_temas)
-                temas_comuns = contador_temas.most_common(10)
-                
-                # Criar DataFrame para visualização de temas
-                df_temas = pd.DataFrame(temas_comuns, columns=['Tema', 'Frequência'])
-                
-                # Contar frequência de cada categoria de sentimento
-                contagem_sentimentos = df_temp['Sentimento'].value_counts().reset_index()
-                contagem_sentimentos.columns = ['Sentimento', 'Contagem']
-                
-                # Mostrar resultados de temas
-                st.write("### Principais temas identificados nos comentários:")
-                st.dataframe(df_temas)
-                
-                # Criar gráfico de barras para temas
-                fig1, ax1 = plt.subplots(figsize=(10, 6))
-                sns.barplot(x='Frequência', y='Tema', data=df_temas, ax=ax1)
-                ax1.set_title('Temas mais frequentes nos comentários')
-                st.pyplot(fig1)
-                plt.close(fig1)
-                
-                # Mostrar resultados de sentimento
-                st.write("### Análise de sentimento dos comentários:")
-                st.dataframe(contagem_sentimentos)
-                
-                # Criar gráfico de pizza para sentimentos
-                fig2, ax2 = plt.subplots(figsize=(10, 6))
-                ax2.pie(contagem_sentimentos['Contagem'], labels=contagem_sentimentos['Sentimento'], 
-                       autopct='%1.1f%%', startangle=90)
-                ax2.axis('equal')
-                ax2.set_title('Distribuição de sentimentos nos comentários')
-                st.pyplot(fig2)
-                plt.close(fig2)
-                
-                # Análise cruzada de temas por sentimento
-                st.write("### Análise cruzada: Temas mais comuns por sentimento")
-                
-                # Criar um dicionário para armazenar temas por sentimento
-                temas_por_sentimento = {}
-                for sentimento in df_temp['Sentimento'].unique():
-                    # Filtrar comentários por sentimento
-                    df_sentimento = df_temp[df_temp['Sentimento'] == sentimento]
-                    # Extrair temas deste sentimento
-                    temas_sentimento = [tema for lista_temas in df_sentimento['Temas'] for tema in lista_temas]
-                    # Contar frequência
-                    contador = Counter(temas_sentimento)
-                    # Armazenar os 5 mais comuns
-                    temas_por_sentimento[sentimento] = contador.most_common(5)
-                
-                # Exibir temas por sentimento
-                for sentimento, temas in temas_por_sentimento.items():
-                    if temas:  # Verificar se há temas para este sentimento
-                        st.write(f"**Temas mais comuns em comentários {sentimento}:**")
-                        df_temas_sentimento = pd.DataFrame(temas, columns=['Tema', 'Frequência'])
-                        st.dataframe(df_temas_sentimento)
-            ```
-            """
-            
-            # Escolher os exemplos apropriados com base no tipo de pergunta
-            examples_to_use = text_analysis_examples if is_text_analysis else quantitative_examples
-            
-            prompt = f"""
-            Você é um assistente especializado em análise de dados com Python. Gere código Python para responder à pergunta do usuário sobre um DataFrame pandas.
-            
-            Informações sobre o DataFrame:
-            - Nome da variável: df
-            - Colunas: {', '.join(df.columns.tolist())}
-            - Tipos de dados: {dict(df.dtypes.astype(str))}
-            - Primeiras linhas: {df.head(3).to_dict()}
-            
-            Pergunta do usuário: {question}
-            
-            Gere apenas o código Python necessário para responder à pergunta. Use pandas, matplotlib, seaborn e numpy conforme necessário.
-            Inclua visualizações quando apropriado. Use st.write() ou st.markdown() para exibir resultados textuais e st.pyplot() para gráficos.
-            Não inclua explicações, apenas o código Python.
-            
-            Exemplos de perguntas e respostas esperadas:
-            {examples_to_use}
-            """
-            
-            response = client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[{"role": "system", "content": "Você é um assistente especializado em análise de dados com Python."},
-                          {"role": "user", "content": prompt}],
-                temperature=0.2,
-                max_tokens=1000
-            )
-            
-            code = response.choices[0].message.content.strip()
-            if "```python" in code and "```" in code:
-                code = code.split("```python")[1].split("```")[0].strip()
-            elif "```" in code:
-                code = code.split("```")[1].split("```")[0].strip()
-            
-            st.subheader("Código gerado pela IA:")
-            code_editor_key = f"code_editor_{current_widget_prefix}_{question[:15].replace(' ','_')}"
-            code_editado = st.text_area("Edite o código se desejar (AVANÇADO):", value=code, height=300, key=code_editor_key)
-            
-            st.warning("⚠️ ATENÇÃO: Executar código gerado por IA pode ser arriscado. Revise o código antes de executar. Não execute código que você não entenda ou não confie.")
-            
-            run_code_key_check = f"run_code_checkbox_{current_widget_prefix}_{question[:15].replace(' ','_')}"
-            run_code = st.checkbox("Sim, entendo os riscos e desejo executar o código.", key=run_code_key_check)
-            
-            if run_code and code_editado.strip():
-                try:
-                    # Definir funções úteis para análise de texto
-                    from collections import Counter
-                    import re
-                    import pandas as pd
-                    
-                    # Verificar se o código menciona colunas que não existem no DataFrame
-                    # e adicionar verificações de segurança
-                    code_lines = code_editado.split('\n')
-                    safe_code_lines = []
-                    
-                    # Adicionar verificações de segurança no início do código
-                    safe_code_lines.append("# Verificações de segurança adicionadas automaticamente")
-                    safe_code_lines.append("import traceback")
-                    safe_code_lines.append("try:")
-                    
-                    # Adicionar o código original com indentação
-                    for line in code_lines:
-                        safe_code_lines.append("    " + line)
-                    
-                    # Adicionar tratamento de exceções no final
-                    safe_code_lines.append("except KeyError as e:")
-                    safe_code_lines.append("    coluna = str(e).strip(\"'\")")
-                    safe_code_lines.append("    st.error(f\"Erro: Coluna '{coluna}' não encontrada no DataFrame.\")")
-                    safe_code_lines.append("    st.write(f\"Colunas disponíveis: {', '.join(df.columns.tolist())}\")")
-                    safe_code_lines.append("    logging.error(f\"KeyError: {str(e)} - Coluna não encontrada no DataFrame\")")
-                    safe_code_lines.append("except NameError as e:")
-                    safe_code_lines.append("    var_name = str(e).split(\"'\")[1] if \"'\" in str(e) else str(e)")
-                    safe_code_lines.append("    st.error(f\"Erro: Variável '{var_name}' não definida.\")")
-                    safe_code_lines.append("    st.write(\"Verifique se todas as variáveis estão sendo definidas antes de serem usadas.\")")
-                    safe_code_lines.append("    logging.error(f\"NameError: {str(e)} - Variável não definida\")")
-                    safe_code_lines.append("except Exception as e:")
-                    safe_code_lines.append("    st.error(\"Não foi possível processar sua solicitação.\")")
-                    safe_code_lines.append("    with st.expander(\"Detalhes técnicos do erro\"):")
-                    safe_code_lines.append("        st.code(traceback.format_exc())")
-                    safe_code_lines.append("    logging.error(f\"Erro na execução do código: {str(e)}\\n{traceback.format_exc()}\")")
-                    
-                    # Juntar as linhas em um único código
-                    safe_code = "\n".join(safe_code_lines)
-                    
-                    # Incluir a função extrair_palavras_robusta no ambiente de execução
-                    def extrair_palavras(texto):
-                        return extrair_palavras_robusta(texto)
-                    
-                    allowed_builtins = {k: v for k, v in __builtins__.__dict__.items() if k in ["print", "len", "range", "list", "dict", "str", "int", "float", "bool", "True", "False", "None", "max", "min", "sum", "abs", "round", "all", "any", "isinstance", "getattr", "hasattr", "Exception", "ValueError", "TypeError", "KeyError", "IndexError", "sorted", "zip", "map", "filter", "enumerate", "reversed", "set", "tuple"]}
-                    safe_globals = {
-                        "__builtins__": allowed_builtins, 
-                        "pd": pd, 
-                        "plt": plt, 
-                        "sns": sns, 
-                        "np": np, 
-                        "st": st, 
-                        "df": df.copy(), 
-                        "io": io,
-                        "Counter": Counter,
-                        "re": re,
-                        "extrair_palavras": extrair_palavras,
-                        "extrair_palavras_robusta": extrair_palavras_robusta,
-                        "identificar_temas": identificar_temas,
-                        "analisar_sentimento": analisar_sentimento,
-                        "traceback": traceback,
-                        "logging": logging
-                    }
-                    
-                    # Compilar o código para verificar erros de sintaxe
-                    compile(safe_code, "<string>", "exec")
-                    
-                    # Executar o código em ambiente seguro
-                    exec(safe_code, safe_globals)
-                    
-                except Exception as e:
-                    # Registrar o erro no arquivo de log
-                    error_details = traceback.format_exc()
-                    logging.error(f"Erro ao executar código gerado pela IA: {str(e)}\nCódigo:\n{code_editado}\nDetalhes:\n{error_details}")
-                    
-                    # Mostrar mensagem amigável ao usuário
-                    st.error("Não foi possível processar sua solicitação. Nossa equipe técnica foi notificada sobre o problema.")
-                    
-                    # Mostrar detalhes do erro em um expander (opcional para depuração)
-                    with st.expander("Detalhes técnicos do erro (para desenvolvedores)"):
-                        st.warning("O erro foi registrado para análise posterior.")
-                        st.code(error_details)
+                if run_code and code_editado.strip():
+                    try:
+                        # Definir funções úteis para análise de texto
+                        from collections import Counter
+                        import re
+                        import pandas as pd
                         
-            elif run_code and not code_editado.strip():
-                 st.error("O campo de código está vazio.")
+                        # Verificar se o código menciona colunas que não existem no DataFrame
+                        # e adicionar verificações de segurança
+                        code_lines = code_editado.split('\n')
+                        safe_code_lines = []
+                        
+                        # Adicionar verificações de segurança no início do código
+                        safe_code_lines.append("# Verificações de segurança adicionadas automaticamente")
+                        safe_code_lines.append("import traceback")
+                        safe_code_lines.append("try:")
+                        
+                        # Adicionar o código original com indentação
+                        for line in code_lines:
+                            safe_code_lines.append("    " + line)
+                        
+                        # Adicionar tratamento de exceções no final
+                        safe_code_lines.append("except KeyError as e:")
+                        safe_code_lines.append("    coluna = str(e).strip(\"'\")")
+                        safe_code_lines.append("    st.error(f\"Erro: Coluna '{coluna}' não encontrada no DataFrame.\")")
+                        safe_code_lines.append("    st.write(f\"Colunas disponíveis: {', '.join(df.columns.tolist())}\")")
+                        safe_code_lines.append("    logging.error(f\"KeyError: {str(e)} - Coluna não encontrada no DataFrame\")")
+                        safe_code_lines.append("except NameError as e:")
+                        safe_code_lines.append("    var_name = str(e).split(\"'\")[1] if \"'\" in str(e) else str(e)")
+                        safe_code_lines.append("    st.error(f\"Erro: Variável '{var_name}' não definida.\")")
+                        safe_code_lines.append("    st.write(\"Verifique se todas as variáveis estão sendo definidas antes de serem usadas.\")")
+                        safe_code_lines.append("    logging.error(f\"NameError: {str(e)} - Variável não definida\")")
+                        safe_code_lines.append("except Exception as e:")
+                        safe_code_lines.append("    st.error(\"Não foi possível processar sua solicitação.\")")
+                        safe_code_lines.append("    with st.expander(\"Detalhes técnicos do erro\"):")
+                        safe_code_lines.append("        st.code(traceback.format_exc())")
+                        safe_code_lines.append("    logging.error(f\"Erro na execução do código: {str(e)}\\n{traceback.format_exc()}\")")
+                        
+                        # Juntar as linhas em um único código
+                        safe_code = "\n".join(safe_code_lines)
+                        
+                        # Incluir a função extrair_palavras_robusta no ambiente de execução
+                        def extrair_palavras(texto):
+                            return extrair_palavras_robusta(texto)
+                        
+                        allowed_builtins = {k: v for k, v in __builtins__.__dict__.items() if k in ["print", "len", "range", "list", "dict", "str", "int", "float", "bool", "True", "False", "None", "max", "min", "sum", "abs", "round", "all", "any", "isinstance", "getattr", "hasattr", "Exception", "ValueError", "TypeError", "KeyError", "IndexError", "sorted", "zip", "map", "filter", "enumerate", "reversed", "set", "tuple"]}
+                        safe_globals = {
+                            "__builtins__": allowed_builtins, 
+                            "pd": pd, 
+                            "plt": plt, 
+                            "sns": sns, 
+                            "np": np, 
+                            "st": st, 
+                            "df": df.copy(), 
+                            "io": io,
+                            "Counter": Counter,
+                            "re": re,
+                            "extrair_palavras": extrair_palavras,
+                            "extrair_palavras_robusta": extrair_palavras_robusta,
+                            "identificar_temas": identificar_temas,
+                            "analisar_sentimento": analisar_sentimento,
+                            "traceback": traceback,
+                            "logging": logging
+                        }
+                        
+                        # Compilar o código para verificar erros de sintaxe
+                        compile(safe_code, "<string>", "exec")
+                        
+                        # Executar o código em ambiente seguro
+                        exec(safe_code, safe_globals)
+                        
+                    except Exception as e:
+                        # Registrar o erro no arquivo de log
+                        error_details = traceback.format_exc()
+                        logging.error(f"Erro ao executar código gerado pela IA: {str(e)}\nCódigo:\n{code_editado}\nDetalhes:\n{error_details}")
+                        
+                        # Mostrar mensagem amigável ao usuário
+                        st.error("Não foi possível processar sua solicitação. Nossa equipe técnica foi notificada sobre o problema.")
+                        
+                        # Mostrar detalhes do erro em um expander (opcional para depuração)
+                        with st.expander("Detalhes técnicos do erro (para desenvolvedores)"):
+                            st.warning("O erro foi registrado para análise posterior.")
+                            st.code(error_details)
+                            
+                elif run_code and not code_editado.strip():
+                     st.error("O campo de código está vazio.")
+                     
+            except Exception as e:
+                # Registrar o erro no arquivo de log
+                error_details = traceback.format_exc()
+                logging.error(f"Erro ao gerar código com a API OpenAI: {str(e)}\nDetalhes:\n{error_details}")
+                
+                # Mostrar mensagem amigável ao usuário
+                st.error("Não foi possível gerar o código usando a API OpenAI. Estamos usando uma análise alternativa.")
+                
+                # Mostrar detalhes do erro em um expander
+                with st.expander("Detalhes técnicos do erro"):
+                    st.warning("O erro foi registrado para análise posterior.")
+                    st.code(error_details)
+                    
+                    # Orientações para resolver problemas de API
+                    st.subheader("Possíveis soluções:")
+                    st.markdown("""
+                    1. **Verifique a chave da API OpenAI**:
+                       - Confirme se a chave está configurada corretamente em `st.secrets["OPENAI_API_KEY"]`
+                       - Verifique se a chave não expirou ou atingiu limites de uso
+                    
+                    2. **Problemas de conectividade**:
+                       - Verifique se o servidor tem acesso à internet
+                       - Confirme se não há bloqueios de firewall para a API OpenAI
+                    
+                    3. **Limitações da conta**:
+                       - Verifique se sua conta OpenAI tem saldo suficiente
+                       - Confirme se não há restrições regionais
+                    """)
+                
+                # Gerar código de fallback baseado no tipo de análise
+                fallback_code = gerar_codigo_fallback_texto(df) if is_text_analysis else gerar_codigo_fallback_numerico(df)
+                
+                st.subheader("Código alternativo gerado:")
+                code_editor_key = f"code_editor_fallback_{current_widget_prefix}_{question[:15].replace(' ','_')}"
+                code_editado = st.text_area("Edite o código se desejar (AVANÇADO):", value=fallback_code, height=300, key=code_editor_key)
+                
+                st.warning("⚠️ ATENÇÃO: Executar código gerado por IA pode ser arriscado. Revise o código antes de executar. Não execute código que você não entenda ou não confie.")
+                
+                run_code_key_check = f"run_code_checkbox_fallback_{current_widget_prefix}_{question[:15].replace(' ','_')}"
+                run_code = st.checkbox("Sim, entendo os riscos e desejo executar o código.", key=run_code_key_check)
+                
+                if run_code and code_editado.strip():
+                    try:
+                        # Definir funções úteis para análise de texto
+                        from collections import Counter
+                        import re
+                        import pandas as pd
+                        
+                        # Verificar se o código menciona colunas que não existem no DataFrame
+                        # e adicionar verificações de segurança
+                        code_lines = code_editado.split('\n')
+                        safe_code_lines = []
+                        
+                        # Adicionar verificações de segurança no início do código
+                        safe_code_lines.append("# Verificações de segurança adicionadas automaticamente")
+                        safe_code_lines.append("import traceback")
+                        safe_code_lines.append("try:")
+                        
+                        # Adicionar o código original com indentação
+                        for line in code_lines:
+                            safe_code_lines.append("    " + line)
+                        
+                        # Adicionar tratamento de exceções no final
+                        safe_code_lines.append("except KeyError as e:")
+                        safe_code_lines.append("    coluna = str(e).strip(\"'\")")
+                        safe_code_lines.append("    st.error(f\"Erro: Coluna '{coluna}' não encontrada no DataFrame.\")")
+                        safe_code_lines.append("    st.write(f\"Colunas disponíveis: {', '.join(df.columns.tolist())}\")")
+                        safe_code_lines.append("    logging.error(f\"KeyError: {str(e)} - Coluna não encontrada no DataFrame\")")
+                        safe_code_lines.append("except NameError as e:")
+                        safe_code_lines.append("    var_name = str(e).split(\"'\")[1] if \"'\" in str(e) else str(e)")
+                        safe_code_lines.append("    st.error(f\"Erro: Variável '{var_name}' não definida.\")")
+                        safe_code_lines.append("    st.write(\"Verifique se todas as variáveis estão sendo definidas antes de serem usadas.\")")
+                        safe_code_lines.append("    logging.error(f\"NameError: {str(e)} - Variável não definida\")")
+                        safe_code_lines.append("except Exception as e:")
+                        safe_code_lines.append("    st.error(\"Não foi possível processar sua solicitação.\")")
+                        safe_code_lines.append("    with st.expander(\"Detalhes técnicos do erro\"):")
+                        safe_code_lines.append("        st.code(traceback.format_exc())")
+                        safe_code_lines.append("    logging.error(f\"Erro na execução do código: {str(e)}\\n{traceback.format_exc()}\")")
+                        
+                        # Juntar as linhas em um único código
+                        safe_code = "\n".join(safe_code_lines)
+                        
+                        # Incluir a função extrair_palavras_robusta no ambiente de execução
+                        def extrair_palavras(texto):
+                            return extrair_palavras_robusta(texto)
+                        
+                        allowed_builtins = {k: v for k, v in __builtins__.__dict__.items() if k in ["print", "len", "range", "list", "dict", "str", "int", "float", "bool", "True", "False", "None", "max", "min", "sum", "abs", "round", "all", "any", "isinstance", "getattr", "hasattr", "Exception", "ValueError", "TypeError", "KeyError", "IndexError", "sorted", "zip", "map", "filter", "enumerate", "reversed", "set", "tuple"]}
+                        safe_globals = {
+                            "__builtins__": allowed_builtins, 
+                            "pd": pd, 
+                            "plt": plt, 
+                            "sns": sns, 
+                            "np": np, 
+                            "st": st, 
+                            "df": df.copy(), 
+                            "io": io,
+                            "Counter": Counter,
+                            "re": re,
+                            "extrair_palavras": extrair_palavras,
+                            "extrair_palavras_robusta": extrair_palavras_robusta,
+                            "identificar_temas": identificar_temas,
+                            "analisar_sentimento": analisar_sentimento,
+                            "traceback": traceback,
+                            "logging": logging
+                        }
+                        
+                        # Compilar o código para verificar erros de sintaxe
+                        compile(safe_code, "<string>", "exec")
+                        
+                        # Executar o código em ambiente seguro
+                        exec(safe_code, safe_globals)
+                        
+                    except Exception as e:
+                        # Registrar o erro no arquivo de log
+                        error_details = traceback.format_exc()
+                        logging.error(f"Erro ao executar código alternativo: {str(e)}\nCódigo:\n{code_editado}\nDetalhes:\n{error_details}")
+                        
+                        # Mostrar mensagem amigável ao usuário
+                        st.error("Não foi possível processar sua solicitação. Nossa equipe técnica foi notificada sobre o problema.")
+                        
+                        # Mostrar detalhes do erro em um expander (opcional para depuração)
+                        with st.expander("Detalhes técnicos do erro (para desenvolvedores)"):
+                            st.warning("O erro foi registrado para análise posterior.")
+                            st.code(error_details)
 
 elif uploaded_file is None and st.session_state.last_uploaded_file_id is None:
     st.info("Por favor, faça o upload de um arquivo para começar a análise.")
