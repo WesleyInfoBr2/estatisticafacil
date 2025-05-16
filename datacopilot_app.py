@@ -391,107 +391,17 @@ if uploaded_file is not None:
             
             is_text_analysis = any(keyword in question.lower() for keyword in text_analysis_keywords)
             
-            # Adicionar exemplos específicos para análise de texto se a pergunta for sobre isso
-            text_analysis_examples = ""
-            if is_text_analysis:
-                text_analysis_examples = """
-                Pergunta: "Analise os comentários e identifique os principais temas"
-                Resposta:
-                ```python
-                # Verificar se existe uma coluna de comentários
-                colunas_texto = df.select_dtypes(include=['object']).columns
-                if len(colunas_texto) == 0:
-                    st.error("Não foram encontradas colunas de texto no DataFrame.")
-                else:
-                    # Usar a primeira coluna de texto como coluna de comentários
-                    coluna_comentarios = colunas_texto[0]
-                    st.write(f"Analisando a coluna: {coluna_comentarios}")
-                    
-                    # Criar coluna de temas usando a função identificar_temas
-                    df_temp = df.copy()
-                    df_temp['Temas'] = df_temp[coluna_comentarios].apply(lambda x: identificar_temas(x, num_temas=3))
-                    
-                    # Contar frequência de cada tema
-                    todos_temas = [tema for lista_temas in df_temp['Temas'] for tema in lista_temas]
-                    contador_temas = Counter(todos_temas)
-                    temas_comuns = contador_temas.most_common(10)
-                    
-                    # Criar DataFrame para visualização
-                    df_temas = pd.DataFrame(temas_comuns, columns=['Tema', 'Frequência'])
-                    
-                    # Mostrar resultados
-                    st.write("### Principais temas identificados nos comentários:")
-                    st.dataframe(df_temas)
-                    
-                    # Criar gráfico de barras
-                    fig, ax = plt.subplots(figsize=(10, 6))
-                    sns.barplot(x='Frequência', y='Tema', data=df_temas, ax=ax)
-                    ax.set_title('Temas mais frequentes nos comentários')
-                    st.pyplot(fig)
-                    plt.close(fig)
-                ```
-                
-                Pergunta: "Qual o sentimento dos comentários?"
-                Resposta:
-                ```python
-                # Verificar se existe uma coluna de comentários
-                colunas_texto = df.select_dtypes(include=['object']).columns
-                if len(colunas_texto) == 0:
-                    st.error("Não foram encontradas colunas de texto no DataFrame.")
-                else:
-                    # Usar a primeira coluna de texto como coluna de comentários
-                    coluna_comentarios = colunas_texto[0]
-                    st.write(f"Analisando o sentimento da coluna: {coluna_comentarios}")
-                    
-                    # Criar coluna de sentimento usando a função analisar_sentimento
-                    df_temp = df.copy()
-                    df_temp['Sentimento'] = df_temp[coluna_comentarios].apply(analisar_sentimento)
-                    
-                    # Contar frequência de cada categoria de sentimento
-                    contagem_sentimentos = df_temp['Sentimento'].value_counts().reset_index()
-                    contagem_sentimentos.columns = ['Sentimento', 'Contagem']
-                    
-                    # Mostrar resultados
-                    st.write("### Análise de sentimento dos comentários:")
-                    st.dataframe(contagem_sentimentos)
-                    
-                    # Criar gráfico de pizza
-                    fig, ax = plt.subplots(figsize=(10, 6))
-                    ax.pie(contagem_sentimentos['Contagem'], labels=contagem_sentimentos['Sentimento'], 
-                           autopct='%1.1f%%', startangle=90)
-                    ax.axis('equal')
-                    ax.set_title('Distribuição de sentimentos nos comentários')
-                    st.pyplot(fig)
-                    plt.close(fig)
-                ```
-                """
-            
-            prompt = f"""
-            Você é um assistente especializado em análise de dados com Python. Gere código Python para responder à pergunta do usuário sobre um DataFrame pandas.
-            
-            Informações sobre o DataFrame:
-            - Nome da variável: df
-            - Colunas: {', '.join(df.columns.tolist())}
-            - Tipos de dados: {dict(df.dtypes.astype(str))}
-            - Primeiras linhas: {df.head(3).to_dict()}
-            
-            Pergunta do usuário: {question}
-            
-            Gere apenas o código Python necessário para responder à pergunta. Use pandas, matplotlib, seaborn e numpy conforme necessário.
-            Inclua visualizações quando apropriado. Use st.write() ou st.markdown() para exibir resultados textuais e st.pyplot() para gráficos.
-            Não inclua explicações, apenas o código Python.
-            
-            Exemplos de perguntas e respostas esperadas:
-            
-            Pergunta: "Qual a média de idade?"
+            # Exemplos específicos baseados no tipo de análise solicitada
+            quantitative_examples = """
+            Pergunta: "Qual a média de vendas?"
             Resposta:
             ```python
             # Verificar se a coluna existe
-            if 'Idade' in df.columns:
-                media_idade = df['Idade'].mean()
-                st.markdown(f"A idade média dos indivíduos na base de dados é de {media_idade:.2f} anos.")
+            if 'Vendas' in df.columns:
+                media_vendas = df['Vendas'].mean()
+                st.markdown(f"A média de vendas é {media_vendas:.2f}.")
             else:
-                st.error("Coluna 'Idade' não encontrada no DataFrame.")
+                st.error("Coluna 'Vendas' não encontrada no DataFrame.")
                 colunas_numericas = df.select_dtypes(include=np.number).columns.tolist()
                 if colunas_numericas:
                     st.write(f"Colunas numéricas disponíveis: {', '.join(colunas_numericas)}")
@@ -545,7 +455,176 @@ if uploaded_file is not None:
                 if colunas_categoricas:
                     st.write(f"Colunas categóricas disponíveis: {', '.join(colunas_categoricas)}")
             ```
-            {text_analysis_examples}
+            """
+            
+            text_analysis_examples = """
+            Pergunta: "Analise os comentários e identifique os principais temas"
+            Resposta:
+            ```python
+            # Verificar se existe uma coluna de comentários
+            colunas_texto = df.select_dtypes(include=['object']).columns
+            if len(colunas_texto) == 0:
+                st.error("Não foram encontradas colunas de texto no DataFrame.")
+            else:
+                # Usar a primeira coluna de texto como coluna de comentários
+                coluna_comentarios = colunas_texto[0]
+                st.write(f"Analisando a coluna: {coluna_comentarios}")
+                
+                # Criar coluna de temas usando a função identificar_temas
+                df_temp = df.copy()
+                df_temp['Temas'] = df_temp[coluna_comentarios].apply(lambda x: identificar_temas(x, num_temas=3))
+                
+                # Contar frequência de cada tema
+                todos_temas = [tema for lista_temas in df_temp['Temas'] for tema in lista_temas]
+                contador_temas = Counter(todos_temas)
+                temas_comuns = contador_temas.most_common(10)
+                
+                # Criar DataFrame para visualização
+                df_temas = pd.DataFrame(temas_comuns, columns=['Tema', 'Frequência'])
+                
+                # Mostrar resultados
+                st.write("### Principais temas identificados nos comentários:")
+                st.dataframe(df_temas)
+                
+                # Criar gráfico de barras
+                fig, ax = plt.subplots(figsize=(10, 6))
+                sns.barplot(x='Frequência', y='Tema', data=df_temas, ax=ax)
+                ax.set_title('Temas mais frequentes nos comentários')
+                st.pyplot(fig)
+                plt.close(fig)
+            ```
+            
+            Pergunta: "Qual o sentimento dos comentários?"
+            Resposta:
+            ```python
+            # Verificar se existe uma coluna de comentários
+            colunas_texto = df.select_dtypes(include=['object']).columns
+            if len(colunas_texto) == 0:
+                st.error("Não foram encontradas colunas de texto no DataFrame.")
+            else:
+                # Usar a primeira coluna de texto como coluna de comentários
+                coluna_comentarios = colunas_texto[0]
+                st.write(f"Analisando o sentimento da coluna: {coluna_comentarios}")
+                
+                # Criar coluna de sentimento usando a função analisar_sentimento
+                df_temp = df.copy()
+                df_temp['Sentimento'] = df_temp[coluna_comentarios].apply(analisar_sentimento)
+                
+                # Contar frequência de cada categoria de sentimento
+                contagem_sentimentos = df_temp['Sentimento'].value_counts().reset_index()
+                contagem_sentimentos.columns = ['Sentimento', 'Contagem']
+                
+                # Mostrar resultados
+                st.write("### Análise de sentimento dos comentários:")
+                st.dataframe(contagem_sentimentos)
+                
+                # Criar gráfico de pizza
+                fig, ax = plt.subplots(figsize=(10, 6))
+                ax.pie(contagem_sentimentos['Contagem'], labels=contagem_sentimentos['Sentimento'], 
+                       autopct='%1.1f%%', startangle=90)
+                ax.axis('equal')
+                ax.set_title('Distribuição de sentimentos nos comentários')
+                st.pyplot(fig)
+                plt.close(fig)
+            ```
+            
+            Pergunta: "Identifique os temas e sentimentos nos comentários"
+            Resposta:
+            ```python
+            # Verificar se existe uma coluna de comentários
+            colunas_texto = df.select_dtypes(include=['object']).columns
+            if len(colunas_texto) == 0:
+                st.error("Não foram encontradas colunas de texto no DataFrame.")
+            else:
+                # Usar a primeira coluna de texto como coluna de comentários
+                coluna_comentarios = colunas_texto[0]
+                st.write(f"Analisando a coluna: {coluna_comentarios}")
+                
+                # Criar colunas de temas e sentimento
+                df_temp = df.copy()
+                df_temp['Temas'] = df_temp[coluna_comentarios].apply(lambda x: identificar_temas(x, num_temas=3))
+                df_temp['Sentimento'] = df_temp[coluna_comentarios].apply(analisar_sentimento)
+                
+                # Contar frequência de cada tema
+                todos_temas = [tema for lista_temas in df_temp['Temas'] for tema in lista_temas]
+                contador_temas = Counter(todos_temas)
+                temas_comuns = contador_temas.most_common(10)
+                
+                # Criar DataFrame para visualização de temas
+                df_temas = pd.DataFrame(temas_comuns, columns=['Tema', 'Frequência'])
+                
+                # Contar frequência de cada categoria de sentimento
+                contagem_sentimentos = df_temp['Sentimento'].value_counts().reset_index()
+                contagem_sentimentos.columns = ['Sentimento', 'Contagem']
+                
+                # Mostrar resultados de temas
+                st.write("### Principais temas identificados nos comentários:")
+                st.dataframe(df_temas)
+                
+                # Criar gráfico de barras para temas
+                fig1, ax1 = plt.subplots(figsize=(10, 6))
+                sns.barplot(x='Frequência', y='Tema', data=df_temas, ax=ax1)
+                ax1.set_title('Temas mais frequentes nos comentários')
+                st.pyplot(fig1)
+                plt.close(fig1)
+                
+                # Mostrar resultados de sentimento
+                st.write("### Análise de sentimento dos comentários:")
+                st.dataframe(contagem_sentimentos)
+                
+                # Criar gráfico de pizza para sentimentos
+                fig2, ax2 = plt.subplots(figsize=(10, 6))
+                ax2.pie(contagem_sentimentos['Contagem'], labels=contagem_sentimentos['Sentimento'], 
+                       autopct='%1.1f%%', startangle=90)
+                ax2.axis('equal')
+                ax2.set_title('Distribuição de sentimentos nos comentários')
+                st.pyplot(fig2)
+                plt.close(fig2)
+                
+                # Análise cruzada de temas por sentimento
+                st.write("### Análise cruzada: Temas mais comuns por sentimento")
+                
+                # Criar um dicionário para armazenar temas por sentimento
+                temas_por_sentimento = {}
+                for sentimento in df_temp['Sentimento'].unique():
+                    # Filtrar comentários por sentimento
+                    df_sentimento = df_temp[df_temp['Sentimento'] == sentimento]
+                    # Extrair temas deste sentimento
+                    temas_sentimento = [tema for lista_temas in df_sentimento['Temas'] for tema in lista_temas]
+                    # Contar frequência
+                    contador = Counter(temas_sentimento)
+                    # Armazenar os 5 mais comuns
+                    temas_por_sentimento[sentimento] = contador.most_common(5)
+                
+                # Exibir temas por sentimento
+                for sentimento, temas in temas_por_sentimento.items():
+                    if temas:  # Verificar se há temas para este sentimento
+                        st.write(f"**Temas mais comuns em comentários {sentimento}:**")
+                        df_temas_sentimento = pd.DataFrame(temas, columns=['Tema', 'Frequência'])
+                        st.dataframe(df_temas_sentimento)
+            ```
+            """
+            
+            # Escolher os exemplos apropriados com base no tipo de pergunta
+            examples_to_use = text_analysis_examples if is_text_analysis else quantitative_examples
+            
+            prompt = f"""
+            Você é um assistente especializado em análise de dados com Python. Gere código Python para responder à pergunta do usuário sobre um DataFrame pandas.
+            
+            Informações sobre o DataFrame:
+            - Nome da variável: df
+            - Colunas: {', '.join(df.columns.tolist())}
+            - Tipos de dados: {dict(df.dtypes.astype(str))}
+            - Primeiras linhas: {df.head(3).to_dict()}
+            
+            Pergunta do usuário: {question}
+            
+            Gere apenas o código Python necessário para responder à pergunta. Use pandas, matplotlib, seaborn e numpy conforme necessário.
+            Inclua visualizações quando apropriado. Use st.write() ou st.markdown() para exibir resultados textuais e st.pyplot() para gráficos.
+            Não inclua explicações, apenas o código Python.
+            
+            Exemplos de perguntas e respostas esperadas:
+            {examples_to_use}
             """
             
             response = client.chat.completions.create(
@@ -663,4 +742,3 @@ elif uploaded_file is None and st.session_state.last_uploaded_file_id is None:
 
 st.markdown("---")
 st.markdown("Desenvolvido como um protótipo. Use com cautela.")
-
