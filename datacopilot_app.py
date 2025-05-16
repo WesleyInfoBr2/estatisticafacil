@@ -598,7 +598,7 @@ if uploaded_file is not None:
                     safe_code_lines.append("    st.write(f\"Colunas disponíveis: {', '.join(df.columns.tolist())}\")")
                     safe_code_lines.append("    logging.error(f\"KeyError: {str(e)} - Coluna não encontrada no DataFrame\")")
                     safe_code_lines.append("except NameError as e:")
-                    safe_code_lines.append("    var_name = str(e).split(\"'")[1] if \"'\" in str(e) else str(e)")
+                    safe_code_lines.append("    var_name = str(e).split(\"'\")[1] if \"'\" in str(e) else str(e)")
                     safe_code_lines.append("    st.error(f\"Erro: Variável '{var_name}' não definida.\")")
                     safe_code_lines.append("    st.write(\"Verifique se todas as variáveis estão sendo definidas antes de serem usadas.\")")
                     safe_code_lines.append("    logging.error(f\"NameError: {str(e)} - Variável não definida\")")
