@@ -852,8 +852,9 @@ if uploaded_file is not None:
                 
                 # Exibir o código gerado
                 # st.subheader("Código gerado pela IA:")
-                st.expander("Código gerado pela IA:"):
+                with st.expander("Código gerado pela IA:"):
                     st.code(code, language="python")
+                st.warning("⚠️ **Atenção:** O código abaixo foi gerado por uma IA. Revise antes de executar.")
             
                 code_editor_key = f"code_editor_{current_widget_prefix}_{question[:15].replace(' ','_')}"
                 code_editado = st.text_area("Edite o código se desejar (AVANÇADO):", value=code, height=300, key=code_editor_key)
