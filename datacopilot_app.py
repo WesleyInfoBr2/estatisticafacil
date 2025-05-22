@@ -990,7 +990,8 @@ if uploaded_file is not None:
                 
                 st.subheader("Código alternativo gerado:")
                 code_editor_key = f"code_editor_fallback_{current_widget_prefix}_{question[:15].replace(' ','_')}"
-                code_editado = st.text_area("Edite o código se desejar (AVANÇADO):", value=fallback_code, height=300, key=code_editor_key)
+                with st.expander("Edite o código se desejar (AVANÇADO):"):
+                    code_editado = st.text_area("Edite o código Python aqui:", code, height=300, key=code_editor_key_area)
                 
                 st.warning("⚠️ ATENÇÃO: Executar código gerado por IA pode ser arriscado. Revise o código antes de executar. Não execute código que você não entenda ou não confie.")
                 
