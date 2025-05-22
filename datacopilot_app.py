@@ -851,15 +851,14 @@ if uploaded_file is not None:
                 code = gerar_codigo_python(df, question, is_text_analysis)
                 
                 # Exibir o código gerado
-                # st.subheader("Código gerado pela IA:")
+                
+                st.warning("⚠️ **Atenção:** O código abaixo foi gerado por uma IA. Revise antes de executar.")
                 with st.expander("Código gerado pela IA:"):
                     st.code(code, language="python")
-                st.warning("⚠️ **Atenção:** O código abaixo foi gerado por uma IA. Revise antes de executar.")
-            
-                code_editor_key = f"code_editor_{current_widget_prefix}_{question[:15].replace(' ','_')}"
-                code_editado = st.text_area("Edite o código se desejar (AVANÇADO):", value=code, height=300, key=code_editor_key)
                 
-                st.warning("⚠️ ATENÇÃO: Executar código gerado por IA pode ser arriscado. Revise o código antes de executar. Não execute código que você não entenda ou não confie.")
+                code_editor_key = f"code_editor_{current_widget_prefix}_{question[:15].replace(' ','_')}"
+                with st.expander("Edite o código se desejar (AVANÇADO):"):
+                    code_editado = st.text_area("Edite o código Python aqui:", code, height=300, key=code_editor_key_area)
                 
                 run_code_key_check = f"run_code_checkbox_{current_widget_prefix}_{question[:15].replace(' ','_')}"
                 run_code = st.checkbox("Sim, entendo os riscos e desejo executar o código.", key=run_code_key_check)
